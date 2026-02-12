@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Filling & Packing Job Card</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f2f5f8;
+            margin: 0;
+            padding: 0;
+        }
+
+        h1 {
+            text-align: center;
+            color: #34495e;
+            margin-top: 30px;
+        }
+
+        form {
+            background: #fff;
+            max-width: 1000px;
+            margin: 30px auto;
+            padding: 30px 40px;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 15px 20px;
+            border-radius: 10px;
+        }
+
+        .section h2 {
+            border-bottom: 2px solid #2980b9;
+            color: #2980b9;
+            padding-bottom: 8px;
+            margin-bottom: 15px;
+        }
+
+        /* Background colors for sections */
+        .job-details { background: #fdfdfd; }
+        .hourly-output { background: #eaf3fc; } /* light blue */
+        .damages { background: #fdecea; } /* light red/pink */
+        .staff { background: #fef9e7; } /* light yellow */
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 8px 10px;
+            margin-top: 5px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+        }
+
+        /* Grid for hourly output */
+        .hour-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .hour-grid div {
+            flex: 1 1 100px;
+            min-width: 120px;
+        }
+
+        /* Grid for damages */
+        .damage-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .damage-grid div {
+            flex: 1 1 150px;
+            min-width: 140px;
+        }
+
+        textarea {
+            min-height: 60px;
+        }
+
+        .submit-btn {
+            background: #27ae60;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            display: block;
+            margin: 30px auto 0;
+            transition: 0.3s;
+        }
+
+        .submit-btn:hover {
+            background: #2ecc71;
+        }
+
+        @media (max-width: 768px) {
+            .hour-grid div, .damage-grid div {
+                flex: 1 1 45%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .hour-grid div, .damage-grid div {
+                flex: 1 1 100%;
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <h1>Filling & Packing Job Card</h1>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <!-- Job Details -->
+        <div class="section job-details">
+            <h2>Job Details</h2>
+            {{ form.date.label_tag }} {{ form.date }}
+            {{ form.line.label_tag }} {{ form.line }}
+            {{ form.wo_number.label_tag }} {{ form.wo_number }}
+            {{ form.shift.label_tag }} {{ form.shift }}
+            {{ form.product_code.label_tag }} {{ form.product_code }}
+            {{ form.product_name.label_tag }} {{ form.product_name }}
+            {{ form.target_quantity.label_tag }} {{ form.target_quantity }}
+        </div>
+
+        <!-- Hourly Output -->
+        <div class="section hourly-output">
+            <h2>Hourly Output</h2>
+            <div class="hour-grid">
+                <div>{{ form.hour1.label_tag }} {{ form.hour1 }}</div>
+                <div>{{ form.hour2.label_tag }} {{ form.hour2 }}</div>
+                <div>{{ form.hour3.label_tag }} {{ form.hour3 }}</div>
+                <div>{{ form.hour4.label_tag }} {{ form.hour4 }}</div>
+                <div>{{ form.hour5.label_tag }} {{ form.hour5 }}</div>
+                <div>{{ form.hour6.label_tag }} {{ form.hour6 }}</div>
+                <div>{{ form.hour7.label_tag }} {{ form.hour7 }}</div>
+                <div>{{ form.hour8.label_tag }} {{ form.hour8 }}</div>
+                <div>{{ form.hour9.label_tag }} {{ form.hour9 }}</div>
+                <div>{{ form.hour10.label_tag }} {{ form.hour10 }}</div>
+                <div>{{ form.hour11.label_tag }} {{ form.hour11 }}</div>
+            </div>
+        </div>
+
+        <!-- Damages / Rejects -->
+        <div class="section damages">
+            <h2>Damages / Rejects</h2>
+            <div class="damage-grid">
+                <div>{{ form.jar.label_tag }} {{ form.jar }}</div>
+                <div>{{ form.cap.label_tag }} {{ form.cap }}</div>
+                <div>{{ form.front_label.label_tag }} {{ form.front_label }}</div>
+                <div>{{ form.back_label.label_tag }} {{ form.back_label }}</div>
+                <div>{{ form.carton.label_tag }} {{ form.carton }}</div>
+                <div>{{ form.sleeve.label_tag }} {{ form.sleeve }}</div>
+                <div>{{ form.sticker.label_tag }} {{ form.sticker }}</div>
+                <div>{{ form.tube.label_tag }} {{ form.tube }}</div>
+                <div>{{ form.packets.label_tag }} {{ form.packets }}</div>
+                <div>{{ form.roll_on_ball.label_tag }} {{ form.roll_on_ball }}</div>
+                <div>{{ form.jar_pump.label_tag }} {{ form.jar_pump }}</div>
+            </div>
+        </div>
+
+        <!-- Operators / Supervisors -->
+        <div class="section staff">
+            <h2>Operators & Supervisors</h2>
+            {{ form.operator_names.label_tag }} {{ form.operator_names }}
+            {{ form.supervisor_names.label_tag }} {{ form.supervisor_names }}
+            {{ form.line_captain_signature.label_tag }} {{ form.line_captain_signature }}
+            {{ form.supervisor_signature.label_tag }} {{ form.supervisor_signature }}
+        </div>
+
+        <button type="submit" class="submit-btn">Submit</button>
+    </form>
+</body>
+</html>
