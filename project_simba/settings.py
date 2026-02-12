@@ -25,7 +25,12 @@ SECRET_KEY = 'django-insecure-c2er4l8lfa4=y82z3u%fwvwms1_xay7464*6dvsz+3*gfmen0^
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['jobcard.onrender.com','127.0.0.1', 'localhost']
+ALLOWED_HOSTS = [
+    'jobcard-factory.onrender.com',
+    '127.0.0.1',
+    'localhost'
+]
+
 
 
 # Application definition
