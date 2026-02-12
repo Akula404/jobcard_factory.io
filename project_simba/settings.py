@@ -23,9 +23,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-c2er4l8lfa4=y82z3u%fwvwms1_xay7464*6dvsz+3*gfmen0^'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['jobcard.onrender.com','127.0.0.1', 'localhost']
 
 
 # Application definition
@@ -121,3 +121,4 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATIC_URL = '/static/'  # already should exist
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # add this line
 
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'sp=!wkx3&j03nyt*+q87_ezcoe#)a9s)*9npk8$a5-yl98229$')
