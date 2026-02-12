@@ -48,6 +48,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware', # Add WhiteNoise middleware for static file handling
 ]
 
 ROOT_URLCONF = 'project_simba.urls'
@@ -120,5 +121,6 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 STATIC_URL = '/static/'  # already should exist
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # add this line
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage' # add this line for WhiteNoise
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'sp=!wkx3&j03nyt*+q87_ezcoe#)a9s)*9npk8$a5-yl98229$')
