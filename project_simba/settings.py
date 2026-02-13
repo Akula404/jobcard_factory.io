@@ -53,7 +53,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware', # Add WhiteNoise middleware for static file handling
+    #'whitenoise.middleware.WhiteNoiseMiddleware', # Add WhiteNoise middleware for static file handling
 ]
 
 ROOT_URLCONF = 'project_simba.urls'
