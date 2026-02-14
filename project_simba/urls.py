@@ -10,10 +10,12 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+
+    # include jobcard app urls
     path('jobcard/', include('jobcard.urls')),
 
-    # Redirect root URL to jobcard/new/
-    path('', lambda request: redirect('jobcard_create')),
+    # Redirect root URL → jobcard create page
+    path('', lambda request: redirect('jobcard:jobcard_create')),
 ]
 
 # Serve static files during development
