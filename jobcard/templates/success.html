@@ -63,7 +63,8 @@
     <div class="success-card">
         <h1>✅ Job Card Submitted Successfully!</h1>
         <p>Your job card has been saved successfully. You can create another job card or return to the main page.</p>
-        <a href="{% url 'jobcard_create' %}">Create Another</a>
+        <!-- Corrected URL with app namespace -->
+        <a href="{% url 'jobcard:jobcard_create' %}">Create Another</a>
     </div>
 </body>
 </html>

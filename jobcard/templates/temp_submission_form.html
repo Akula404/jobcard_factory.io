@@ -1,0 +1,175 @@
+<h2 class="title">Operator Live Entry — Shift {{ shift }}</h2>
+
+<style>
+body{
+    font-family:Segoe UI,system-ui;
+    background:linear-gradient(135deg,#eef2f7,#f9fbfd);
+    margin:0;
+    padding:30px;
+}
+
+/* HEADER */
+.title{
+    text-align:center;
+    color:#2c3e50;
+    margin-bottom:35px;
+    font-size:28px;
+    font-weight:700;
+}
+
+/* CARD */
+.line-card{
+    background:white;
+    border-radius:14px;
+    padding:25px;
+    margin-bottom:30px;
+    box-shadow:0 6px 18px rgba(0,0,0,.08);
+    transition:.25s;
+}
+
+.line-card:hover{
+    transform:translateY(-4px);
+    box-shadow:0 12px 25px rgba(0,0,0,.12);
+}
+
+/* LINE HEADER */
+.line-title{
+    font-size:20px;
+    font-weight:700;
+    margin-bottom:15px;
+    color:#34495e;
+}
+
+/* GRID */
+.grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(70px,1fr));
+    gap:12px;
+    margin-top:15px;
+}
+
+/* INPUT */
+input[type=number]{
+    padding:10px;
+    border-radius:8px;
+    border:1px solid #dfe6ec;
+    text-align:center;
+    font-size:16px;
+    transition:.2s;
+}
+
+input[type=number]:focus{
+    outline:none;
+    border-color:#3498db;
+    box-shadow:0 0 0 2px rgba(52,152,219,.2);
+    transform:scale(1.05);
+}
+
+/* TOTAL BOX */
+.total-box{
+    margin-top:18px;
+    padding:12px;
+    background:#f4f8fb;
+    border-radius:8px;
+    font-weight:600;
+    color:#2c3e50;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.total-value{
+    font-size:20px;
+    color:#27ae60;
+    font-weight:700;
+}
+
+/* STATUS DOT */
+.status{
+    width:10px;
+    height:10px;
+    border-radius:50%;
+    background:#27ae60;
+    margin-right:8px;
+    display:inline-block;
+}
+
+.status-wrap{
+    font-size:14px;
+    color:#7f8c8d;
+}
+</style>
+
+
+{% for line, form, obj in forms_data %}
+<div class="line-card">
+
+<div class="line-title">
+{{ line|title }}
+</div>
+
+<form class="line-form" data-line="{{ line }}">
+{% csrf_token %}
+<input type="hidden" name="line" value="{{ line }}">
+
+<div class="grid">
+{{ form.hour1 }} {{ form.hour2 }} {{ form.hour3 }}
+{{ form.hour4 }} {{ form.hour5 }} {{ form.hour6 }}
+{{ form.hour7 }} {{ form.hour8 }} {{ form.hour9 }}
+{{ form.hour10 }} {{ form.hour11 }}
+</div>
+
+<div class="total-box">
+<div class="status-wrap">
+<span class="status"></span>
+Live updating
+</div>
+
+<div>
+Total: <span class="total-value total">0</span>
+</div>
+</div>
+
+</form>
+
+</div>
+{% endfor %}
+
+
+
+<script>
+document.querySelectorAll(".line-form").forEach(form=>{
+
+    const inputs=form.querySelectorAll("input[type=number]");
+    const totalEl=form.querySelector(".total");
+    const line=form.dataset.line;
+
+    function calc(){
+        let t=0;
+        inputs.forEach(i=>{
+            if(i.value) t+=parseInt(i.value)||0;
+        });
+        totalEl.textContent=t;
+    }
+
+    inputs.forEach(i=>{
+        i.addEventListener("input",()=>{
+
+            calc();
+
+            const fd=new FormData(form);
+
+            fetch("?shift={{shift}}",{
+                method:"POST",
+                headers:{
+                    "X-CSRFToken":form.querySelector("[name=csrfmiddlewaretoken]").value,
+                    "X-Requested-With":"XMLHttpRequest"
+                },
+                body:fd
+            });
+        });
+    });
+
+    calc();
+});
+</script>
