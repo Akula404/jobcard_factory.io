@@ -1,43 +1,172 @@
 <h2 class="page-title">Supervisor Live Dashboard — {{ today }}</h2>
 
+<style>
+body{
+    font-family:'Segoe UI',system-ui;
+    margin:0;
+    background:linear-gradient(135deg,#eef2f7,#d9e4f5);
+    color:#1f2937;
+}
+
+/* HEADER */
+.page-title{
+    text-align:center;
+    padding:25px;
+    margin:0 0 20px 0;
+    font-size:28px;
+    font-weight:700;
+    background:linear-gradient(90deg,#1e3c72,#2a5298);
+    color:white;
+    letter-spacing:.5px;
+    box-shadow:0 4px 12px rgba(0,0,0,.15);
+}
+
+/* CARD */
+.line-card{
+    background:white;
+    border-radius:18px;
+    padding:25px;
+    margin:25px auto;
+    width:95%;
+    box-shadow:0 10px 25px rgba(0,0,0,.08);
+    transition:.3s;
+    border:1px solid #e5eaf2;
+}
+.line-card:hover{
+    transform:translateY(-4px);
+    box-shadow:0 18px 35px rgba(0,0,0,.12);
+}
+
+/* LINE TITLE */
+.line-title{
+    margin:0 0 15px 0;
+    font-size:22px;
+    font-weight:700;
+    background:linear-gradient(90deg,#4facfe,#00f2fe);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+}
+
+/* TABLE */
+table{
+    width:100%;
+    border-collapse:collapse;
+    overflow:hidden;
+    border-radius:12px;
+}
+
+th,td{
+    padding:10px;
+    text-align:center;
+    font-size:14px;
+}
+
+th{
+    background:#1e293b;
+    color:white;
+    font-weight:600;
+    position:sticky;
+    top:0;
+}
+
+td{
+    border-bottom:1px solid #edf2f7;
+}
+
+tr:hover td{
+    background:#f8fbff;
+}
+
+/* OPERATOR CELL */
+.operator{
+    text-align:left;
+    font-weight:600;
+    color:#334155;
+}
+
+/* TOTAL ROW */
+.total-row td{
+    background:linear-gradient(90deg,#e0f2fe,#f0f9ff);
+    font-weight:700;
+    color:#0f172a;
+    border-top:2px solid #38bdf8;
+}
+
+/* TOTAL NUMBER */
+.total-value{
+    font-weight:800;
+    color:#0ea5e9;
+}
+
+/* SCROLL IF MANY LINES */
+.wrapper{
+    overflow-x:auto;
+}
+</style>
+
 {% for key, data in dashboard_data.items %}
+
 <div class="line-card">
-  <h3 class="line-title">{{ key|upper }}</h3>
-  <div class="wrapper">
-    <table>
-      <tr>
-        <th>Operator</th>
-        {% for i in hour_range %}<th>H{{i}}</th>{% endfor %}
-        <th>Total</th>
-      </tr>
-      {% for s in data.submissions %}
-      <tr>
-        <td class="operator">{{ s.operator.username if s.operator else "Anonymous" }}</td>
-        <td>{{s.hour1}}</td><td>{{s.hour2}}</td><td>{{s.hour3}}</td>
-        <td>{{s.hour4}}</td><td>{{s.hour5}}</td><td>{{s.hour6}}</td>
-        <td>{{s.hour7}}</td><td>{{s.hour8}}</td><td>{{s.hour9}}</td>
-        <td>{{s.hour10}}</td><td>{{s.hour11}}</td>
-        <td class="total-value">{{ s.total_output }}</td>
-      </tr>
-      {% endfor %}
-      <tr class="total-row">
-        <td>Total</td>
-        {% for val in data.hour_totals %}<td>{{val}}</td>{% endfor %}
-        <td>{{ data.total }}</td>
-      </tr>
-    </table>
-  </div>
+
+<h3 class="line-title">{{ key|upper }}</h3>
+
+<div class="wrapper">
+<table>
+<tr>
+<th>Operator</th>
+{% for i in hour_range %}
+<th>H{{i}}</th>
+{% endfor %}
+<th>Total</th>
+</tr>
+
+{% for s in data.submissions %}
+<tr>
+
+<td class="operator">
+{% if s.operator %}
+{{ s.operator.username }}
+{% else %}
+Anonymous
+{% endif %}
+</td>
+
+<td>{{s.hour1}}</td>
+<td>{{s.hour2}}</td>
+<td>{{s.hour3}}</td>
+<td>{{s.hour4}}</td>
+<td>{{s.hour5}}</td>
+<td>{{s.hour6}}</td>
+<td>{{s.hour7}}</td>
+<td>{{s.hour8}}</td>
+<td>{{s.hour9}}</td>
+<td>{{s.hour10}}</td>
+<td>{{s.hour11}}</td>
+
+<td class="total-value">{{s.total_output}}</td>
+
+</tr>
+{% endfor %}
+
+<tr class="total-row">
+<td>Total</td>
+
+{% for val in data.hour_totals %}
+<td>{{val}}</td>
+{% endfor %}
+
+<td>{{data.total}}</td>
+</tr>
+
+</table>
 </div>
+
+</div>
+
 {% endfor %}
 
 <script>
-setInterval(()=>{
-  fetch(window.location.href)
-    .then(res=>res.text())
-    .then(html=>{
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, "text/html");
-      document.body.innerHTML = doc.body.innerHTML;
-    });
-}, 3000);
+setTimeout(()=>{
+    location.reload();
+},3000);
 </script>
