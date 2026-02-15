@@ -12,17 +12,12 @@ def temp_submission(request):
     user = request.user if request.user.is_authenticated else None
     shift = request.GET.get("shift", "Day")
 
-    # ===============================
-    # AJAX SAVE (REALTIME UPDATE)
-    # ===============================
+    # ---------- AJAX SAVE ----------
     if request.method == "POST" and request.headers.get("x-requested-with") == "XMLHttpRequest":
-
         line = request.POST.get("line")
 
-        if not line:
-            return JsonResponse({"error": "Line missing"}, status=400)
-
-        obj, _ = TempSubmission.objects.get_or_create(
+        # Ensure we get the right object for this line + shift
+        obj, created = TempSubmission.objects.get_or_create(
             operator=user,
             date=today,
             shift=shift,
@@ -33,17 +28,30 @@ def temp_submission(request):
 
         if form.is_valid():
             saved = form.save()
+            # Return the new total for this line
+            return JsonResponse({"total": saved.total_output()})
 
-            return JsonResponse({
-                "success": True,
-                "total": saved.total_output(),
-                "line": line
-            })
+        # If form invalid
+        return JsonResponse({"error": "Invalid data"}, status=400)
 
-        return JsonResponse({
-            "success": False,
-            "errors": form.errors
-        }, status=400)
+    # ---------- PAGE LOAD ----------
+    lines = ["line1", "line2", "line3", "line4", "line5", "line6", "line7"]
+    forms_data = []
+
+    for line in lines:
+        obj, created = TempSubmission.objects.get_or_create(
+            operator=user,
+            date=today,
+            shift=shift,
+            line=line
+        )
+        form = TempSubmissionForm(instance=obj)
+        forms_data.append((line, form, obj))
+
+    return render(request, "temp_submission_form.html", {
+        "forms_data": forms_data,
+        "shift": shift
+    })
 
     # ===============================
     # PAGE LOAD (SHOW ALL 7 LINES)

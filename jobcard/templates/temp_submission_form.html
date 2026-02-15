@@ -40,3 +40,36 @@ def temp_submission(request):
         "forms_data": forms_data,
         "shift": shift
     })
+
+    <script>
+document.querySelectorAll(".line-form").forEach(form=>{
+    const inputs = form.querySelectorAll("input[type=number]");
+    const totalEl = form.querySelector(".total-value");
+    const line = form.dataset.line;
+
+    function calc(){
+        let t=0;
+        inputs.forEach(i=> { if(i.value) t+=parseInt(i.value)||0; });
+        totalEl.textContent = t;
+    }
+
+    inputs.forEach(i=>{
+        i.addEventListener("input", ()=>{
+            calc();
+
+            // Send only this line's form data via AJAX
+            const fd = new FormData(form);
+            fetch("?shift={{shift}}", {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": form.querySelector("[name=csrfmiddlewaretoken]").value,
+                    "X-Requested-With": "XMLHttpRequest"
+                },
+                body: fd
+            });
+        });
+    });
+
+    calc(); // initialize totals on load
+});
+</script>
