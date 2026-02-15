@@ -12,26 +12,52 @@ def temp_submission(request):
     user = request.user if request.user.is_authenticated else None
     shift = request.GET.get("shift", "Day")
 
-    lines = ["line1","line2","line3","line4","line5","line6","line7"]
-    forms_data = []
+    # ===============================
+    # AJAX SAVE (REALTIME UPDATE)
+    # ===============================
+    if request.method == "POST" and request.headers.get("x-requested-with") == "XMLHttpRequest":
 
-    for line in lines:
-        obj, created = TempSubmission.objects.get_or_create(
+        line = request.POST.get("line")
+
+        if not line:
+            return JsonResponse({"error": "Line missing"}, status=400)
+
+        obj, _ = TempSubmission.objects.get_or_create(
             operator=user,
             date=today,
             shift=shift,
             line=line
         )
 
-        # AJAX SAVE
-        if request.method == "POST" and request.headers.get("x-requested-with") == "XMLHttpRequest":
-            if request.POST.get("line") == line:
-                form = TempSubmissionForm(request.POST, instance=obj)
-                if form.is_valid():
-                    saved = form.save()
-                    return JsonResponse({
-                        "total": saved.total_output()
-                    })
+        form = TempSubmissionForm(request.POST, instance=obj)
+
+        if form.is_valid():
+            saved = form.save()
+
+            return JsonResponse({
+                "success": True,
+                "total": saved.total_output(),
+                "line": line
+            })
+
+        return JsonResponse({
+            "success": False,
+            "errors": form.errors
+        }, status=400)
+
+    # ===============================
+    # PAGE LOAD (SHOW ALL 7 LINES)
+    # ===============================
+    lines = ["line1","line2","line3","line4","line5","line6","line7"]
+    forms_data = []
+
+    for line in lines:
+        obj, _ = TempSubmission.objects.get_or_create(
+            operator=user,
+            date=today,
+            shift=shift,
+            line=line
+        )
 
         form = TempSubmissionForm(instance=obj)
         forms_data.append((line, form, obj))
@@ -43,36 +69,50 @@ def temp_submission(request):
 
 
 
+
 # -----------------------------
 # SUPERVISOR DASHBOARD
 # -----------------------------
 def supervisor_dashboard(request):
     today = timezone.localdate()
-    submissions = TempSubmission.objects.filter(date=today).order_by('line', 'shift', 'operator')
+
+    lines = ["line1","line2","line3","line4","line5","line6","line7"]
+    shifts = ["Day","Night"]
+
+    submissions = TempSubmission.objects.filter(date=today)
 
     dashboard_data = {}
-    for sub in submissions:
-        key = f"{sub.line}_{sub.shift}"
-        if key not in dashboard_data:
+
+    for line in lines:
+        for shift in shifts:
+
+            key = f"{line}_{shift}"
+
+            line_subs = submissions.filter(line=line, shift=shift)
+
+            hour_totals = [0]*11
+            total = 0
+
+            for sub in line_subs:
+                hours = [
+                    sub.hour1, sub.hour2, sub.hour3, sub.hour4, sub.hour5,
+                    sub.hour6, sub.hour7, sub.hour8, sub.hour9, sub.hour10, sub.hour11
+                ]
+                for i in range(11):
+                    hour_totals[i] += hours[i] or 0
+
+                total += sub.total_output()
+
             dashboard_data[key] = {
-                "submissions": [],
-                "hour_totals": [0]*11,
-                "total": 0
+                "submissions": line_subs,
+                "hour_totals": hour_totals,
+                "total": total
             }
-        dashboard_data[key]["submissions"].append(sub)
 
-        hours = [
-            sub.hour1, sub.hour2, sub.hour3, sub.hour4, sub.hour5,
-            sub.hour6, sub.hour7, sub.hour8, sub.hour9, sub.hour10, sub.hour11
-        ]
-        for i in range(11):
-            dashboard_data[key]["hour_totals"][i] += hours[i] or 0
-        dashboard_data[key]["total"] += sub.total_output()
-
-    return render(request, "supervisor_dashboard.html", {
+    return render(request,"supervisor_dashboard.html",{
         "dashboard_data": dashboard_data,
         "today": today,
-        "hour_range": range(1, 12)
+        "hour_range": range(1,12)
     })
 
 # -----------------------------

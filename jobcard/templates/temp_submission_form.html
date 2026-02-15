@@ -1,175 +1,42 @@
-<h2 class="title">Operator Live Entry — Shift {{ shift }}</h2>
+def temp_submission(request):
+    today = timezone.localdate()
+    user = request.user if request.user.is_authenticated else None
+    shift = request.GET.get("shift", "Day")
 
-<style>
-body{
-    font-family:Segoe UI,system-ui;
-    background:linear-gradient(135deg,#eef2f7,#f9fbfd);
-    margin:0;
-    padding:30px;
-}
+    # ---------- AJAX SAVE ----------
+    if request.method == "POST" and request.headers.get("x-requested-with") == "XMLHttpRequest":
+        line = request.POST.get("line")
 
-/* HEADER */
-.title{
-    text-align:center;
-    color:#2c3e50;
-    margin-bottom:35px;
-    font-size:28px;
-    font-weight:700;
-}
+        obj, created = TempSubmission.objects.get_or_create(
+            operator=user,
+            date=today,
+            shift=shift,
+            line=line
+        )
 
-/* CARD */
-.line-card{
-    background:white;
-    border-radius:14px;
-    padding:25px;
-    margin-bottom:30px;
-    box-shadow:0 6px 18px rgba(0,0,0,.08);
-    transition:.25s;
-}
+        form = TempSubmissionForm(request.POST, instance=obj)
 
-.line-card:hover{
-    transform:translateY(-4px);
-    box-shadow:0 12px 25px rgba(0,0,0,.12);
-}
+        if form.is_valid():
+            saved = form.save()
+            return JsonResponse({"total": saved.total_output()})
 
-/* LINE HEADER */
-.line-title{
-    font-size:20px;
-    font-weight:700;
-    margin-bottom:15px;
-    color:#34495e;
-}
+        return JsonResponse({"error": "Invalid data"}, status=400)
 
-/* GRID */
-.grid{
-    display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(70px,1fr));
-    gap:12px;
-    margin-top:15px;
-}
+    # ---------- PAGE LOAD ----------
+    lines = ["line1","line2","line3","line4","line5","line6","line7"]
+    forms_data = []
 
-/* INPUT */
-input[type=number]{
-    padding:10px;
-    border-radius:8px;
-    border:1px solid #dfe6ec;
-    text-align:center;
-    font-size:16px;
-    transition:.2s;
-}
+    for line in lines:
+        obj, created = TempSubmission.objects.get_or_create(
+            operator=user,
+            date=today,
+            shift=shift,
+            line=line
+        )
+        form = TempSubmissionForm(instance=obj)
+        forms_data.append((line, form, obj))
 
-input[type=number]:focus{
-    outline:none;
-    border-color:#3498db;
-    box-shadow:0 0 0 2px rgba(52,152,219,.2);
-    transform:scale(1.05);
-}
-
-/* TOTAL BOX */
-.total-box{
-    margin-top:18px;
-    padding:12px;
-    background:#f4f8fb;
-    border-radius:8px;
-    font-weight:600;
-    color:#2c3e50;
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-}
-
-.total-value{
-    font-size:20px;
-    color:#27ae60;
-    font-weight:700;
-}
-
-/* STATUS DOT */
-.status{
-    width:10px;
-    height:10px;
-    border-radius:50%;
-    background:#27ae60;
-    margin-right:8px;
-    display:inline-block;
-}
-
-.status-wrap{
-    font-size:14px;
-    color:#7f8c8d;
-}
-</style>
-
-
-{% for line, form, obj in forms_data %}
-<div class="line-card">
-
-<div class="line-title">
-{{ line|title }}
-</div>
-
-<form class="line-form" data-line="{{ line }}">
-{% csrf_token %}
-<input type="hidden" name="line" value="{{ line }}">
-
-<div class="grid">
-{{ form.hour1 }} {{ form.hour2 }} {{ form.hour3 }}
-{{ form.hour4 }} {{ form.hour5 }} {{ form.hour6 }}
-{{ form.hour7 }} {{ form.hour8 }} {{ form.hour9 }}
-{{ form.hour10 }} {{ form.hour11 }}
-</div>
-
-<div class="total-box">
-<div class="status-wrap">
-<span class="status"></span>
-Live updating
-</div>
-
-<div>
-Total: <span class="total-value total">0</span>
-</div>
-</div>
-
-</form>
-
-</div>
-{% endfor %}
-
-
-
-<script>
-document.querySelectorAll(".line-form").forEach(form=>{
-
-    const inputs=form.querySelectorAll("input[type=number]");
-    const totalEl=form.querySelector(".total");
-    const line=form.dataset.line;
-
-    function calc(){
-        let t=0;
-        inputs.forEach(i=>{
-            if(i.value) t+=parseInt(i.value)||0;
-        });
-        totalEl.textContent=t;
-    }
-
-    inputs.forEach(i=>{
-        i.addEventListener("input",()=>{
-
-            calc();
-
-            const fd=new FormData(form);
-
-            fetch("?shift={{shift}}",{
-                method:"POST",
-                headers:{
-                    "X-CSRFToken":form.querySelector("[name=csrfmiddlewaretoken]").value,
-                    "X-Requested-With":"XMLHttpRequest"
-                },
-                body:fd
-            });
-        });
-    });
-
-    calc();
-});
-</script>
+    return render(request, "temp_submission_form.html", {
+        "forms_data": forms_data,
+        "shift": shift
+    })

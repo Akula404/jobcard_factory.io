@@ -166,7 +166,11 @@ Anonymous
 {% endfor %}
 
 <script>
-setTimeout(()=>{
-    location.reload();
-},3000);
+setInterval(()=>{
+    fetch(window.location.href)
+    .then(res=>res.text())
+    .then(html=>{
+        document.body.innerHTML = html;
+    });
+},2000);
 </script>
