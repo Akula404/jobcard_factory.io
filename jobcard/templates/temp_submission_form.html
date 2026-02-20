@@ -1,175 +1,223 @@
-<h2 class="title">Operator Live Entry — Shift {{ shift }}</h2>
+<h2 class="title">Operator Entry Panel</h2>
 
 <style>
-body{
-    font-family:Segoe UI,system-ui;
-    background:linear-gradient(135deg,#eef2f7,#f9fbfd);
-    margin:0;
-    padding:30px;
+body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: linear-gradient(135deg, #f0f4f8, #ffffff);
+    margin: 0;
+    padding: 30px;
 }
 
 /* HEADER */
-.title{
-    text-align:center;
-    color:#2c3e50;
-    margin-bottom:35px;
-    font-size:28px;
-    font-weight:700;
+.title {
+    text-align: center;
+    color: #1e293b;
+    margin-bottom: 40px;
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: 1px;
 }
 
 /* CARD */
-.line-card{
-    background:white;
-    border-radius:14px;
-    padding:25px;
-    margin-bottom:30px;
-    box-shadow:0 6px 18px rgba(0,0,0,.08);
-    transition:.25s;
+.line-card {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 30px;
+    margin-bottom: 30px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    transition: transform 0.25s, box-shadow 0.25s;
+    border: 1px solid #e2e8f0;
 }
 
-.line-card:hover{
-    transform:translateY(-4px);
-    box-shadow:0 12px 25px rgba(0,0,0,.12);
+.line-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.12);
 }
 
-/* LINE HEADER */
-.line-title{
-    font-size:20px;
-    font-weight:700;
-    margin-bottom:15px;
-    color:#34495e;
+/* LINE TITLE */
+.line-title {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    color: #0f172a;
+    border-bottom: 2px solid #e0e7ff;
+    padding-bottom: 6px;
 }
 
-/* GRID */
-.grid{
-    display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(70px,1fr));
-    gap:12px;
-    margin-top:15px;
+/* HOUR LABEL GRID */
+.hour-labels {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.hour-labels span {
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: #475569;
+}
+
+/* INPUT GRID */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+    gap: 10px;
+    margin-bottom: 15px;
 }
 
 /* INPUT */
-input[type=number]{
-    padding:10px;
-    border-radius:8px;
-    border:1px solid #dfe6ec;
-    text-align:center;
-    font-size:16px;
-    transition:.2s;
+input[type=number] {
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #cbd5e1;
+    text-align: center;
+    font-size: 16px;
+    font-weight: 600;
+    background: #f8fafc;
+    transition: all 0.2s;
 }
 
-input[type=number]:focus{
-    outline:none;
-    border-color:#3498db;
-    box-shadow:0 0 0 2px rgba(52,152,219,.2);
-    transform:scale(1.05);
+input[type=number]:focus {
+    outline: none;
+    border-color: #2563eb;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    transform: scale(1.05);
+}
+
+input.locked {
+    background: #e2e8f0 !important;
+    border-color: #94a3b8 !important;
+    color: #475569;
 }
 
 /* TOTAL BOX */
-.total-box{
-    margin-top:18px;
-    padding:12px;
-    background:#f4f8fb;
-    border-radius:8px;
-    font-weight:600;
-    color:#2c3e50;
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
+.total-box {
+    margin-top: 12px;
+    padding: 12px 16px;
+    background: linear-gradient(90deg, #e0f2fe, #f0f9ff);
+    border-radius: 10px;
+    font-weight: 600;
+    color: #1e293b;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid #bae6fd;
+    font-size: 16px;
 }
 
-.total-value{
-    font-size:20px;
-    color:#27ae60;
-    font-weight:700;
+.total-value {
+    font-size: 22px;
+    color: #0ea5e9;
+    font-weight: 800;
 }
 
-/* STATUS DOT */
-.status{
-    width:10px;
-    height:10px;
-    border-radius:50%;
-    background:#27ae60;
-    margin-right:8px;
-    display:inline-block;
-}
-
-.status-wrap{
-    font-size:14px;
-    color:#7f8c8d;
+/* RESPONSIVE ADJUSTMENTS */
+@media(max-width: 600px){
+    .grid, .hour-labels {
+        grid-template-columns: repeat(auto-fit, minmax(45px, 1fr));
+    }
+    .line-title {
+        font-size: 20px;
+    }
+    input[type=number] {
+        font-size: 14px;
+    }
 }
 </style>
 
-
 {% for line, form, obj in forms_data %}
 <div class="line-card">
+    <div class="line-title">{{ line|title }}</div>
+    <form class="line-form" data-line="{{ line }}">
+        {% csrf_token %}
+        <input type="hidden" name="line" value="{{ line }}">
 
-<div class="line-title">
-{{ line|title }}
-</div>
+        <!-- Hour Labels -->
+        <div class="hour-labels">
+            <span>H1</span><span>H2</span><span>H3</span>
+            <span>H4</span><span>H5</span><span>H6</span>
+            <span>H7</span><span>H8</span><span>H9</span>
+            <span>H10</span><span>H11</span>
+        </div>
 
-<form class="line-form" data-line="{{ line }}">
-{% csrf_token %}
-<input type="hidden" name="line" value="{{ line }}">
+        <!-- Inputs -->
+        <div class="grid">
+            <input type="number" name="hour1" value="{{ obj.hour1|default_if_none:'' }}" {% if obj.hour1 %}disabled class="locked"{% endif %}>
+            <input type="number" name="hour2" value="{{ obj.hour2|default_if_none:'' }}" {% if obj.hour2 %}disabled class="locked"{% endif %}>
+            <input type="number" name="hour3" value="{{ obj.hour3|default_if_none:'' }}" {% if obj.hour3 %}disabled class="locked"{% endif %}>
+            <input type="number" name="hour4" value="{{ obj.hour4|default_if_none:'' }}" {% if obj.hour4 %}disabled class="locked"{% endif %}>
+            <input type="number" name="hour5" value="{{ obj.hour5|default_if_none:'' }}" {% if obj.hour5 %}disabled class="locked"{% endif %}>
+            <input type="number" name="hour6" value="{{ obj.hour6|default_if_none:'' }}" {% if obj.hour6 %}disabled class="locked"{% endif %}>
+            <input type="number" name="hour7" value="{{ obj.hour7|default_if_none:'' }}" {% if obj.hour7 %}disabled class="locked"{% endif %}>
+            <input type="number" name="hour8" value="{{ obj.hour8|default_if_none:'' }}" {% if obj.hour8 %}disabled class="locked"{% endif %}>
+            <input type="number" name="hour9" value="{{ obj.hour9|default_if_none:'' }}" {% if obj.hour9 %}disabled class="locked"{% endif %}>
+            <input type="number" name="hour10" value="{{ obj.hour10|default_if_none:'' }}" {% if obj.hour10 %}disabled class="locked"{% endif %}>
+            <input type="number" name="hour11" value="{{ obj.hour11|default_if_none:'' }}" {% if obj.hour11 %}disabled class="locked"{% endif %}>
+        </div>
 
-<div class="grid">
-{{ form.hour1 }} {{ form.hour2 }} {{ form.hour3 }}
-{{ form.hour4 }} {{ form.hour5 }} {{ form.hour6 }}
-{{ form.hour7 }} {{ form.hour8 }} {{ form.hour9 }}
-{{ form.hour10 }} {{ form.hour11 }}
-</div>
-
-<div class="total-box">
-<div class="status-wrap">
-<span class="status"></span>
-Live updating
-</div>
-
-<div>
-Total: <span class="total-value total">0</span>
-</div>
-</div>
-
-</form>
-
+        <!-- Total -->
+        <div class="total-box">
+            <div>Total Output</div>
+            <div class="total-value total">0</div>
+        </div>
+    </form>
 </div>
 {% endfor %}
 
-
-
 <script>
-document.querySelectorAll(".line-form").forEach(form=>{
+document.querySelectorAll(".line-form").forEach(form => {
+    const inputs = form.querySelectorAll("input[type=number]");
+    const totalDiv = form.querySelector(".total-value");
 
-    const inputs=form.querySelectorAll("input[type=number]");
-    const totalEl=form.querySelector(".total");
-    const line=form.dataset.line;
-
-    function calc(){
-        let t=0;
-        inputs.forEach(i=>{
-            if(i.value) t+=parseInt(i.value)||0;
+    const recalcTotal = () => {
+        let sum = 0;
+        inputs.forEach(i => {
+            let val = parseFloat(i.value);
+            if(!isNaN(val)) sum += val;
         });
-        totalEl.textContent=t;
-    }
+        totalDiv.textContent = sum;
+    };
 
-    inputs.forEach(i=>{
-        i.addEventListener("input",()=>{
+    recalcTotal();
 
-            calc();
+    inputs.forEach(input => {
+        input.addEventListener("change", async () => {
+            if(!input.value || input.disabled) return;
 
-            const fd=new FormData(form);
+            const fd = new FormData(form);
 
-            fetch("?shift={{shift}}",{
-                method:"POST",
-                headers:{
-                    "X-CSRFToken":form.querySelector("[name=csrfmiddlewaretoken]").value,
-                    "X-Requested-With":"XMLHttpRequest"
-                },
-                body:fd
-            });
+            try{
+                const res = await fetch("?shift={{shift}}",{
+                    method:"POST",
+                    headers:{
+                        "X-CSRFToken": form.querySelector("[name=csrfmiddlewaretoken]").value,
+                        "X-Requested-With":"XMLHttpRequest"
+                    },
+                    body:fd
+                });
+
+                const data = await res.json();
+
+                if(data.error){
+                    alert(data.error);
+                    input.value="";
+                    recalcTotal();
+                    return;
+                }
+
+                if(data.success){
+                    input.disabled = true;
+                    input.classList.add("locked");
+                    recalcTotal();
+                }
+
+            }catch(err){
+                console.error(err);
+            }
         });
     });
-
-    calc();
 });
 </script>

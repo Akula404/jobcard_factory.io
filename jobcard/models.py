@@ -1,7 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
-from django.contrib.postgres.fields import JSONField 
 
 # -----------------------------
 # CHOICES
@@ -22,17 +21,19 @@ SHIFT_CHOICES = [
 ]
 
 # =====================================================
-# FINAL JOBCARD (Saved only after supervisor confirms)
+# FINAL JOBCARD (Permanent Record)
 # =====================================================
 class JobCard(models.Model):
-    date = models.DateField(default=timezone.localdate)
-    line = models.CharField(max_length=10, choices=LINE_CHOICES)
+    date = models.DateField(default=timezone.localdate, db_index=True)
+    line = models.CharField(max_length=10, choices=LINE_CHOICES, db_index=True)
+    shift = models.CharField(max_length=20, choices=SHIFT_CHOICES, db_index=True)
+
     wo_number = models.CharField(max_length=50)
-    shift = models.CharField(max_length=20, choices=SHIFT_CHOICES)
     product_code = models.CharField(max_length=50)
     product_name = models.CharField(max_length=100)
     target_quantity = models.PositiveIntegerField(default=0)
 
+    # Hourly Output
     hour1 = models.PositiveIntegerField(default=0)
     hour2 = models.PositiveIntegerField(default=0)
     hour3 = models.PositiveIntegerField(default=0)
@@ -45,6 +46,7 @@ class JobCard(models.Model):
     hour10 = models.PositiveIntegerField(default=0)
     hour11 = models.PositiveIntegerField(default=0)
 
+    # Rejects
     jar = models.PositiveIntegerField(default=0)
     cap = models.PositiveIntegerField(default=0)
     front_label = models.PositiveIntegerField(default=0)
@@ -57,11 +59,13 @@ class JobCard(models.Model):
     roll_on_ball = models.PositiveIntegerField(default=0)
     jar_pump = models.PositiveIntegerField(default=0)
 
+    # Personnel
     operator_names = models.TextField()
     supervisor_names = models.TextField()
     line_captain_signature = models.CharField(max_length=100)
     supervisor_signature = models.CharField(max_length=100)
 
+    # ---------- CALCULATED ----------
     def total_output(self):
         return sum([
             self.hour1, self.hour2, self.hour3, self.hour4, self.hour5,
@@ -69,19 +73,30 @@ class JobCard(models.Model):
             self.hour11
         ])
 
+    def efficiency(self):
+        if self.target_quantity == 0:
+            return 0
+        return round((self.total_output() / self.target_quantity) * 100, 1)
+
+    # ---------- META ----------
+    class Meta:
+        unique_together = ["date", "line", "shift"]
+        ordering = ["-date", "line"]
+
     def __str__(self):
         return f"{self.date} | {self.product_name} | {self.line} | {self.shift}"
 
 
 # =====================================================
-# LIVE OPERATOR ENTRY TABLE (REALTIME DATA)
+# LIVE OPERATOR ENTRY (REALTIME TABLE)
 # =====================================================
 class TempSubmission(models.Model):
     operator = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
-    line = models.CharField(max_length=10, choices=LINE_CHOICES)
-    shift = models.CharField(max_length=20, choices=SHIFT_CHOICES)
-    date = models.DateField(default=timezone.localdate)
+    date = models.DateField(default=timezone.localdate, db_index=True)
+    line = models.CharField(max_length=10, choices=LINE_CHOICES, db_index=True)
+    shift = models.CharField(max_length=20, choices=SHIFT_CHOICES, db_index=True)
 
+    # Hourly
     hour1 = models.PositiveIntegerField(default=0)
     hour2 = models.PositiveIntegerField(default=0)
     hour3 = models.PositiveIntegerField(default=0)
@@ -96,6 +111,7 @@ class TempSubmission(models.Model):
 
     updated_at = models.DateTimeField(auto_now=True)
 
+    # ---------- CALCULATED ----------
     def total_output(self):
         return sum([
             self.hour1, self.hour2, self.hour3, self.hour4, self.hour5,
@@ -103,22 +119,50 @@ class TempSubmission(models.Model):
             self.hour11
         ])
 
+    # ---------- META ----------
+    class Meta:
+        unique_together = ["operator", "date", "line", "shift"]
+        ordering = ["line", "shift"]
+        indexes = [
+            models.Index(fields=["date", "shift", "line"]),
+        ]
+
     def __str__(self):
         name = self.operator.username if self.operator else "Anonymous"
         return f"{name} | {self.date} | {self.shift} | {self.line}"
 
 
 # =====================================================
-# SHIFT FINAL AGGREGATION TABLE
+# SHIFT FINAL SNAPSHOT (Audit + History Table)
 # =====================================================
 class ShiftSubmission(models.Model):
-    date = models.DateField()
-    shift = models.CharField(max_length=20, choices=SHIFT_CHOICES)
-    line = models.CharField(max_length=10, choices=LINE_CHOICES)
+    date = models.DateField(db_index=True)
+    shift = models.CharField(max_length=20, choices=SHIFT_CHOICES, db_index=True)
+    line = models.CharField(max_length=10, choices=LINE_CHOICES, db_index=True)
+
     aggregated_data = models.JSONField(default=list)
+
     supervisor_approved = models.BooleanField(default=False)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        unique_together = ["date", "shift", "line"]
+        ordering = ["-date"]
+
     def __str__(self):
         return f"{self.date} - {self.shift} - {self.line}"
+
+
+class HourEntry(models.Model):
+    hour = models.IntegerField()
+    value = models.FloatField(null=True, blank=True)
+    is_locked = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        # lock only if value exists AND is not zero
+        if self.value not in [None, 0, 0.0]:
+            self.is_locked = True
+        super().save(*args, **kwargs)
+
