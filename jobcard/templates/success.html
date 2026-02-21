@@ -1,70 +1,62 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Success</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f2f5f8;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }
+<meta charset="UTF-8">
+<title>JobCard Submission Success</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+body {
+    font-family: 'Inter', sans-serif;
+    background: #f4f6f9;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+.success-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 50px 70px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    max-width: 550px;
+    animation: fadeIn 0.5s ease-in-out;
+}
+.success-card h1 {
+    color: #27ae60;
+    font-size: 32px;
+    margin-bottom: 20px;
+}
+.success-card p {
+    color: #34495e;
+    font-size: 18px;
+    margin-bottom: 30px;
+}
+.success-card a {
+    display: inline-block;
+    background: #2980b9;
+    color: white;
+    padding: 14px 30px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: 0.3s;
+}
+.success-card a:hover { background: #3498db; }
 
-        .success-card {
-            background: #fff;
-            border-radius: 12px;
-            padding: 40px 60px;
-            text-align: center;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-            max-width: 500px;
-            animation: fadeIn 0.5s ease-in-out;
-        }
-
-        .success-card h1 {
-            color: #27ae60;
-            font-size: 28px;
-            margin-bottom: 15px;
-        }
-
-        .success-card p {
-            color: #34495e;
-            font-size: 16px;
-            margin-bottom: 30px;
-        }
-
-        .success-card a {
-            display: inline-block;
-            background: #2980b9;
-            color: white;
-            padding: 12px 25px;
-            border-radius: 6px;
-            text-decoration: none;
-            font-weight: bold;
-            transition: 0.3s;
-        }
-
-        .success-card a:hover {
-            background: #3498db;
-        }
-
-        /* Optional: fade in animation */
-        @keyframes fadeIn {
-            from {opacity: 0; transform: translateY(-20px);}
-            to {opacity: 1; transform: translateY(0);}
-        }
-    </style>
+@keyframes fadeIn {
+    from {opacity:0; transform: translateY(-20px);}
+    to {opacity:1; transform: translateY(0);}
+}
+</style>
 </head>
 <body>
-    <div class="success-card">
-        <h1>✅ Job Card Submitted Successfully!</h1>
-        <p>Your job card has been saved successfully. You can create another job card or return to the main page.</p>
-        <!-- Corrected URL with app namespace -->
-        <a href="{% url 'jobcard:jobcard_create' %}">Create Another</a>
-    </div>
+<div class="success-card">
+    <h1>✅ JobCard Submitted Successfully!</h1>
+    <p>All prepopulated and operator-entered data has been saved for future reference.</p>
+    <a href="{% url 'jobcard:operator_entry' %}">Enter Another JobCard</a>
+</div>
 </body>
 </html>

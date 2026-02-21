@@ -12,7 +12,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
 
     # include jobcard app urls
-    path('jobcard/', include('jobcard.urls')),
+    path('jobcard/', include('jobcard.urls', namespace='jobcard')),
 
     # Redirect root URL → jobcard create page
     path('', lambda request: redirect('jobcard:jobcard_create')),

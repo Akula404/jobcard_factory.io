@@ -1,27 +1,28 @@
 from django.shortcuts import render, redirect
 from django.utils import timezone
 from django.http import JsonResponse
-from .forms import TempSubmissionForm, JobCardForm
+from django.contrib import messages
+from .forms import TempSubmissionForm, JobCardForm, JobCardPrepopulateForm
 from .models import TempSubmission, ShiftSubmission, JobCard
+from datetime import date
+
 
 # -----------------------------
-# LIVE OPERATOR ENTRY
+# LIVE OPERATOR ENTRY (UNCHANGED)
 # -----------------------------
 def temp_submission(request):
     today = timezone.localdate()
     user = request.user if request.user.is_authenticated else None
-    shift = request.GET.get("shift", "Day")  # Day or Night
-
-    lines = ["line1","line2","line3","line4","line5","line6","line7"]
+    shift = request.GET.get("shift", "Day")
+# Get all lines from choices
+    from .models import LINE_CHOICES
+    lines = [l[0] for l in LINE_CHOICES]
     forms_data = []
 
-    # ---------- AJAX SAVE ----------
     if request.method == "POST" and request.headers.get("x-requested-with") == "XMLHttpRequest":
-
         line = request.POST.get("line")
         shift_post = request.POST.get("shift", shift)
 
-        # get or create for correct shift
         obj, _ = TempSubmission.objects.get_or_create(
             operator=user,
             date=today,
@@ -36,7 +37,6 @@ def temp_submission(request):
             new_val = request.POST.get(field)
             old_val = getattr(obj, field)
 
-            # skip empty input
             if new_val in [None, ""]:
                 continue
 
@@ -45,13 +45,11 @@ def temp_submission(request):
             except:
                 continue
 
-            # LOCK RULE: only overwrite if old value is None or 0
             if old_val not in [None, 0, 0.0]:
                 return JsonResponse({
                     "error": f"{field.upper()} already submitted and locked."
                 }, status=403)
 
-            # do not save zero values
             if new_val == 0:
                 continue
 
@@ -59,13 +57,9 @@ def temp_submission(request):
             updated_fields.append(i)
 
         obj.save()
+        return JsonResponse({"success": True, "updated": updated_fields})
 
-        return JsonResponse({
-            "success": True,
-            "updated": updated_fields
-        })
 
-    # ---------- PAGE LOAD ----------
     for line in lines:
         obj, _ = TempSubmission.objects.get_or_create(
             operator=user,
@@ -73,7 +67,6 @@ def temp_submission(request):
             shift=shift,
             line=line
         )
-
         form = TempSubmissionForm(instance=obj)
         forms_data.append((line, form, obj))
 
@@ -91,8 +84,8 @@ def supervisor_dashboard(request):
     submissions = TempSubmission.objects.filter(date=today).order_by('line', 'shift', 'operator')
 
     lines = ["line1","line2","line3","line4","line5","line6","line7"]
-
     global_locked_hours = []
+
     for h in range(1, 12):
         filled_lines = (
             submissions
@@ -105,14 +98,13 @@ def supervisor_dashboard(request):
         if filled_lines >= len(lines):
             global_locked_hours.append(h)
 
-    # AJAX polling
     if request.GET.get("ajax") == "1":
         return JsonResponse({"global_locked_hours": global_locked_hours})
 
-    # Prepare dashboard data: separate Day/Night shift
     dashboard_data = {}
+
     for sub in submissions:
-        key = f"{sub.line}_{sub.shift}"  # e.g., "line1_Day", "line1_Night"
+        key = f"{sub.line}_{sub.shift}"
 
         if key not in dashboard_data:
             dashboard_data[key] = {
@@ -148,6 +140,7 @@ def finalize_shift(request, line, shift):
     submissions = TempSubmission.objects.filter(date=today, line=line, shift=shift)
 
     aggregated_data = []
+
     for s in submissions:
         aggregated_data.append({
             "operator": s.operator.username if s.operator else "Anonymous",
@@ -169,26 +162,135 @@ def finalize_shift(request, line, shift):
         shift_submission.aggregated_data = aggregated_data
         shift_submission.save()
 
-    return redirect("supervisor_dashboard")
+    return redirect("jobcard:supervisor_dashboard")
 
 
 # -----------------------------
-# JOBCARD FORM
+# JOBCARD FORM (FINAL OPERATOR ENTRY)
 # -----------------------------
-def jobcard_create(request):
+def jobcard_operator_entry(request):
+    today = timezone.localdate()
+
     if request.method == "POST":
-        form = JobCardForm(request.POST)
+        line = request.POST.get("line")
+        shift = request.POST.get("shift")
+
+        jobcard = JobCard.objects.filter(date=today, line=line, shift=shift).first()
+
+        if not jobcard:
+            messages.error(request, "No JobCard created for this line/shift.")
+            return redirect("jobcard:jobcard_create")
+
+        # 🚫 BLOCK DUPLICATE SUBMISSION
+        if jobcard.is_submitted:
+            messages.error(request, "This JobCard was already submitted. Duplicate entries are not allowed.")
+            return redirect(request.path + f"?line={line}&shift={shift}")
+
+        form = JobCardForm(request.POST, instance=jobcard)
+
         if form.is_valid():
-            form.save()
-            return redirect('jobcard:jobcard_success')
+            obj = form.save(commit=False)
+
+            # mark as submitted so nobody can submit again
+            obj.is_submitted = True
+            obj.save()
+
+            messages.success(request, "✅ JobCard submitted successfully!")
+            return redirect("jobcard:jobcard_success")
+        else:
+            messages.error(request, "Please correct the errors below.")
+
     else:
-        form = JobCardForm()
+        line = request.GET.get("line")
+        shift = request.GET.get("shift")
+        jobcard = JobCard.objects.filter(date=today, line=line, shift=shift).first()
 
-    return render(request, "jobcard_form.html", {
-        "form": form,
-        "hour_range": range(1, 12)
-    })
+        if jobcard:
+            form = JobCardForm(instance=jobcard)
+        else:
+            form = JobCardForm()
+
+    return render(request, "jobcard_form.html", {"form": form})
 
 
+# -----------------------------
+# SUCCESS PAGE
+# -----------------------------
 def jobcard_success(request):
     return render(request, "success.html")
+
+
+# -----------------------------
+# SUPERVISOR PREPOPULATE
+# -----------------------------
+def jobcard_prepopulate(request):
+    today = timezone.localdate()
+
+    if request.method == "POST":
+        form = JobCardPrepopulateForm(request.POST)
+
+        if form.is_valid():
+            line = form.cleaned_data['line']
+            shift = form.cleaned_data['shift']
+
+            jobcard, created = JobCard.objects.get_or_create(
+                date=today,
+                line=line,
+                shift=shift,
+                defaults={
+                    "wo_number": form.cleaned_data['wo_number'],
+                    "product_code": form.cleaned_data['product_code'],
+                    "product_name": form.cleaned_data['product_name'],
+                    "target_quantity": form.cleaned_data['target_quantity'],
+                    "operator_names": "",
+                    "supervisor_names": "",
+                }
+            )
+
+            if not created:
+                jobcard.wo_number = form.cleaned_data['wo_number']
+                jobcard.product_code = form.cleaned_data['product_code']
+                jobcard.product_name = form.cleaned_data['product_name']
+                jobcard.target_quantity = form.cleaned_data['target_quantity']
+                jobcard.save()
+
+                messages.success(request, f"JobCard for {line} ({shift}) updated.")
+            else:
+                messages.success(request, f"JobCard for {line} ({shift}) created.")
+
+            return redirect('jobcard:jobcard_prepopulate')
+
+    else:
+        form = JobCardPrepopulateForm()
+
+    return render(request, "jobcard_prepopulate.html", {"form": form})
+
+
+# -----------------------------
+# GET JOBCARD (AJAX LOAD)
+# -----------------------------
+def get_jobcard(request):
+    line = request.GET.get("line")
+    shift = request.GET.get("shift")
+
+    try:
+        job = JobCard.objects.get(
+            line=line,
+            shift=shift,
+            date=date.today()
+        )
+
+        already_submitted = bool(job.operator_names or job.hour1)
+
+        return JsonResponse({
+            "wo_number": job.wo_number,
+            "product_code": job.product_code,
+            "product_name": job.product_name,
+            "target_quantity": job.target_quantity,
+            "operator_names": job.operator_names,
+            "supervisor_names": job.supervisor_names,
+            "submitted": already_submitted
+        })
+
+    except JobCard.DoesNotExist:
+        return JsonResponse({"error": "No jobcard found for this line & shift"})

@@ -6,13 +6,15 @@ from django.utils import timezone
 # CHOICES
 # -----------------------------
 LINE_CHOICES = [
-    ('line1', 'Line 1'),
-    ('line2', 'Line 2'),
-    ('line3', 'Line 3'),
-    ('line4', 'Line 4'),
-    ('line5', 'Line 5'),
-    ('line6', 'Line 6'),
-    ('line7', 'Line 7'),
+    ('FL001', 'FL 001'),
+    ('FL006', 'FL 006'),
+    ('FL007', 'FL 007'),
+    ('FL008', 'FL 008'),
+    ('FL009', 'FL 009'),
+    ('FL010', 'FL 010'),
+    ('FL013', 'FL 013'),
+    ('FL015', 'FL 015'),
+    ('COPACK', 'CO-PACKING'),
 ]
 
 SHIFT_CHOICES = [
@@ -32,6 +34,9 @@ class JobCard(models.Model):
     product_code = models.CharField(max_length=50)
     product_name = models.CharField(max_length=100)
     target_quantity = models.PositiveIntegerField(default=0)
+
+    # ✅ LOCK FIELD (prevents duplicate submissions)
+    is_submitted = models.BooleanField(default=False)
 
     # Hourly Output
     hour1 = models.PositiveIntegerField(default=0)
@@ -80,8 +85,16 @@ class JobCard(models.Model):
 
     # ---------- META ----------
     class Meta:
-        unique_together = ["date", "line", "shift"]
         ordering = ["-date", "line"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["date", "line", "shift"],
+                name="unique_jobcard_per_shift_line_date"
+            )
+        ]
+        indexes = [
+            models.Index(fields=["date", "line", "shift"]),
+        ]
 
     def __str__(self):
         return f"{self.date} | {self.product_name} | {self.line} | {self.shift}"
@@ -121,8 +134,15 @@ class TempSubmission(models.Model):
 
     # ---------- META ----------
     class Meta:
-        unique_together = ["operator", "date", "line", "shift"]
         ordering = ["line", "shift"]
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=["operator", "date", "line", "shift"],
+                name="unique_operator_submission"
+            )
+        ]
+
         indexes = [
             models.Index(fields=["date", "shift", "line"]),
         ]
@@ -141,20 +161,28 @@ class ShiftSubmission(models.Model):
     line = models.CharField(max_length=10, choices=LINE_CHOICES, db_index=True)
 
     aggregated_data = models.JSONField(default=list)
-
     supervisor_approved = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ["date", "shift", "line"]
         ordering = ["-date"]
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=["date", "shift", "line"],
+                name="unique_shift_submission"
+            )
+        ]
 
     def __str__(self):
         return f"{self.date} - {self.shift} - {self.line}"
 
 
+# =====================================================
+# HOUR LOCK SYSTEM
+# =====================================================
 class HourEntry(models.Model):
     hour = models.IntegerField()
     value = models.FloatField(null=True, blank=True)
@@ -165,4 +193,3 @@ class HourEntry(models.Model):
         if self.value not in [None, 0, 0.0]:
             self.is_locked = True
         super().save(*args, **kwargs)
-
