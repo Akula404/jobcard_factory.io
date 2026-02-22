@@ -4,6 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Filling & Packing Job Card</title>
+
 <style>
 body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f2f5f8; margin:0; padding:0; }
 h1 { text-align:center; margin-top:30px; color:#34495e; }
@@ -62,12 +63,15 @@ textarea { min-height:60px; }
 </div>
 
 
+<!-- Hidden fields sent in POST -->
+<input type="hidden" name="line" id="id_line">
+<input type="hidden" name="shift" id="id_shift">
+
+
 <!-- Job Details -->
 <div class="section job-details">
 <h2>Job Details</h2>
 {{ form.date.label_tag }} {{ form.date }}
-{{ form.line.label_tag }} {{ form.line }}
-{{ form.shift.label_tag }} {{ form.shift }}
 {{ form.wo_number.label_tag }} {{ form.wo_number }}
 {{ form.product_code.label_tag }} {{ form.product_code }}
 {{ form.product_name.label_tag }} {{ form.product_name }}
@@ -153,14 +157,17 @@ function loadJobcard(){
     });
 }
 
+
 // total calc
 const totalOutputEl = document.getElementById("totalOutput");
 const hours = [...Array(11)].map((_, i) => document.getElementById(`id_hour${i+1}`));
+
 function updateTotal(){
     let total = 0;
     hours.forEach(h => { if(h && h.value) total += parseInt(h.value)||0; });
     totalOutputEl.textContent = total;
 }
+
 hours.forEach(h => { if(h) h.addEventListener("input", updateTotal); });
 updateTotal();
 </script>
