@@ -6,6 +6,50 @@ from .forms import TempSubmissionForm, JobCardForm, JobCardPrepopulateForm
 from .models import TempSubmission, ShiftSubmission, JobCard
 from datetime import date
 
+import csv
+from django.http import HttpResponse
+
+##CSV Export
+def export_jobcards_csv(request):
+    # default: today
+    start_date = request.GET.get('start_date', timezone.localdate())
+    end_date = request.GET.get('end_date', timezone.localdate())
+    line = request.GET.get('line')  # optional filter
+    shift = request.GET.get('shift')  # optional filter
+
+    # Build queryset with filters
+    jobcards = JobCard.objects.filter(date__range=[start_date, end_date])
+    if line:
+        jobcards = jobcards.filter(line=line)
+    if shift:
+        jobcards = jobcards.filter(shift=shift)
+
+    # Create CSV response
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="jobcards_{start_date}_to_{end_date}.csv"'
+
+    writer = csv.writer(response)
+    header = [
+        'Date', 'Line', 'Shift', 'WO Number', 'Product Code', 'Product Name', 'Target Quantity',
+        'Hour1','Hour2','Hour3','Hour4','Hour5','Hour6','Hour7','Hour8','Hour9','Hour10','Hour11',
+        'Total Output',
+        'Jar','Cap','Front Label','Back Label','Carton','Sleeve','Sticker','Tube','Packets','Roll On Ball','Jar Pump',
+        'Operators','Supervisors'
+    ]
+    writer.writerow(header)
+
+    for jc in jobcards:
+        row = [
+            jc.date, jc.line, jc.shift, jc.wo_number, jc.product_code, jc.product_name, jc.target_quantity,
+            jc.hour1, jc.hour2, jc.hour3, jc.hour4, jc.hour5, jc.hour6, jc.hour7, jc.hour8, jc.hour9, jc.hour10, jc.hour11,
+            jc.total_output(),
+            jc.jar, jc.cap, jc.front_label, jc.back_label, jc.carton, jc.sleeve, jc.sticker, jc.tube, jc.packets, jc.roll_on_ball, jc.jar_pump,
+            jc.operator_names, jc.supervisor_names
+        ]
+        writer.writerow(row)
+
+    return response
+
 
 # -----------------------------
 # LIVE OPERATOR ENTRY (UNCHANGED)
@@ -242,8 +286,8 @@ def jobcard_prepopulate(request):
                     "product_code": form.cleaned_data['product_code'],
                     "product_name": form.cleaned_data['product_name'],
                     "target_quantity": form.cleaned_data['target_quantity'],
-                    "operator_names": "",
-                    "supervisor_names": "",
+                    "operator_names": form.cleaned_data.get("operator_names", ""),
+                    "supervisor_names": form.cleaned_data.get("supervisor_names", ""),
                 }
             )
 
@@ -252,6 +296,8 @@ def jobcard_prepopulate(request):
                 jobcard.product_code = form.cleaned_data['product_code']
                 jobcard.product_name = form.cleaned_data['product_name']
                 jobcard.target_quantity = form.cleaned_data['target_quantity']
+                jobcard.operator_names = form.cleaned_data.get("operator_names", "")
+                jobcard.supervisor_names = form.cleaned_data.get("supervisor_names", "")
                 jobcard.save()
 
                 messages.success(request, f"JobCard for {line} ({shift}) updated.")
@@ -277,7 +323,7 @@ def get_jobcard(request):
         job = JobCard.objects.get(
             line=line,
             shift=shift,
-            date=date.today()
+            date=timezone.localdate()   # ✅ FIXED
         )
 
         already_submitted = bool(job.operator_names or job.hour1)

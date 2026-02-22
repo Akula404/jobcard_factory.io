@@ -27,4 +27,6 @@ urlpatterns = [
 
     # AJAX endpoint to fetch JobCard details
     path("get-jobcard/", views.get_jobcard, name="get_jobcard"),
+
+    path('export-jobcards-csv/', views.export_jobcards_csv, name='export_jobcards_csv'),
 ]

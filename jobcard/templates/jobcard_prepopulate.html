@@ -31,12 +31,14 @@
     }
 
     /* ====== Headings ====== */
-    h1 {
+    h1, h2 {
         text-align: center;
         color: #2c3e50;
-        margin-bottom: 30px;
-        font-size: 28px;
+        margin-bottom: 20px;
     }
+
+    h1 { font-size: 28px; }
+    h2 { font-size: 24px; margin-top: 40px; }
 
     /* ====== Form Elements ====== */
     form {
@@ -66,8 +68,8 @@
         outline: none;
     }
 
-    /* ====== Submit Button ====== */
-    .submit-btn {
+    /* ====== Buttons ====== */
+    .submit-btn, .load-btn {
         background: #2980b9;
         color: #fff;
         padding: 12px;
@@ -79,7 +81,7 @@
         transition: 0.3s;
     }
 
-    .submit-btn:hover {
+    .submit-btn:hover, .load-btn:hover {
         background: #3498db;
     }
 
@@ -127,11 +129,44 @@
         </div>
     {% endif %}
 
+    <!-- Prepopulate Form -->
     <form method="post" action="{% url 'jobcard:jobcard_prepopulate' %}">
         {% csrf_token %}
         {{ form.as_p }}
-
         <button type="submit" class="submit-btn">Prepopulate JobCard</button>
+    </form>
+
+    <!-- Export CSV Form (Supervisor Only) -->
+    <h2>Export JobCards</h2>
+    <form method="get" action="{% url 'jobcard:export_jobcards_csv' %}">
+        <label>Start Date:</label>
+        <input type="date" name="start_date" value="{{ today }}">
+
+        <label>End Date:</label>
+        <input type="date" name="end_date" value="{{ today }}">
+
+        <label>Line (optional):</label>
+        <select name="line">
+            <option value="">All Lines</option>
+            <option value="FL001">FL 001</option>
+            <option value="FL006">FL 006</option>
+            <option value="FL007">FL 007</option>
+            <option value="FL008">FL 008</option>
+            <option value="FL009">FL 009</option>
+            <option value="FL010">FL 010</option>
+            <option value="FL013">FL 013</option>
+            <option value="FL015">FL 015</option>
+            <option value="COPACK">CO-PACKING</option>
+        </select>
+
+        <label>Shift (optional):</label>
+        <select name="shift">
+            <option value="">All Shifts</option>
+            <option value="Day">Day</option>
+            <option value="Night">Night</option>
+        </select>
+
+        <button type="submit" class="load-btn">Export CSV</button>
     </form>
 </div>
 
