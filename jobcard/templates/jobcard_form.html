@@ -4,7 +4,6 @@
 <head>
 <meta charset="UTF-8">
 <title>Filling & Packing Job Card</title>
-
 <style>
 body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f2f5f8; margin:0; padding:0; }
 h1 { text-align:center; margin-top:30px; color:#34495e; }
@@ -37,7 +36,6 @@ textarea { min-height:60px; }
 <!-- SELECT LINE + SHIFT -->
 <div class="section job-details">
 <h2>Select Workstation</h2>
-
 <label>Line</label>
 <select id="lineSelect">
 <option value="">---------</option>
@@ -62,11 +60,9 @@ textarea { min-height:60px; }
 <button type="button" class="load-btn" onclick="loadJobcard()">Load JobCard</button>
 </div>
 
-
 <!-- Hidden fields sent in POST -->
-<input type="hidden" name="line" id="id_line">
-<input type="hidden" name="shift" id="id_shift">
-
+<input type="hidden" name="line" id="id_line" value="{{ line }}">
+<input type="hidden" name="shift" id="id_shift" value="{{ shift }}">
 
 <!-- Job Details -->
 <div class="section job-details">
@@ -77,7 +73,6 @@ textarea { min-height:60px; }
 {{ form.product_name.label_tag }} {{ form.product_name }}
 {{ form.target_quantity.label_tag }} {{ form.target_quantity }}
 </div>
-
 
 <!-- Hourly Output -->
 <div class="section hourly-output">
@@ -92,7 +87,6 @@ textarea { min-height:60px; }
 Total Output: <span id="totalOutput">0</span>
 </div>
 </div>
-
 
 <!-- Damages -->
 <div class="section damages">
@@ -112,42 +106,31 @@ Total Output: <span id="totalOutput">0</span>
 </div>
 </div>
 
-
 <!-- Staff -->
 <div class="section staff">
 <h2>Operators & Supervisors</h2>
-{{ form.operator_names.label_tag }} {{ form.operator_names }}
-{{ form.supervisor_names.label_tag }} {{ form.supervisor_names }}
+{{ form.operator_names.label_tag }} {{ form.operator_names.as_widget(attrs={'readonly': True}) }}
+{{ form.supervisor_names.label_tag }} {{ form.supervisor_names.as_widget(attrs={'readonly': True}) }}
 {{ form.line_captain_signature.label_tag }} {{ form.line_captain_signature }}
 {{ form.supervisor_signature.label_tag }} {{ form.supervisor_signature }}
 </div>
 
 <button type="submit" class="submit-btn">Submit</button>
-
 </form>
-
 
 <script>
 function loadJobcard(){
     const line = document.getElementById("lineSelect").value;
     const shift = document.getElementById("shiftSelect").value;
-
-    if(!line || !shift){
-        alert("Select Line and Shift first");
-        return;
-    }
+    if(!line || !shift){ alert("Select Line and Shift first"); return; }
 
     fetch(`/jobcard/get-jobcard/?line=${line}&shift=${shift}`)
     .then(res => res.json())
     .then(data => {
-        if(data.error){
-            alert(data.error);
-            return;
-        }
+        if(data.error){ alert(data.error); return; }
 
         document.getElementById("id_line").value = line;
         document.getElementById("id_shift").value = shift;
-
         document.getElementById("id_wo_number").value = data.wo_number;
         document.getElementById("id_product_code").value = data.product_code;
         document.getElementById("id_product_name").value = data.product_name;
@@ -157,17 +140,14 @@ function loadJobcard(){
     });
 }
 
-
-// total calc
+// total calculation
 const totalOutputEl = document.getElementById("totalOutput");
 const hours = [...Array(11)].map((_, i) => document.getElementById(`id_hour${i+1}`));
-
 function updateTotal(){
     let total = 0;
     hours.forEach(h => { if(h && h.value) total += parseInt(h.value)||0; });
     totalOutputEl.textContent = total;
 }
-
 hours.forEach(h => { if(h) h.addEventListener("input", updateTotal); });
 updateTotal();
 </script>
