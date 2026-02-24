@@ -189,8 +189,11 @@ document.querySelectorAll(".line-form").forEach(form => {
 
             const fd = new FormData(form);
 
+            // ✅ IMPORTANT: ALWAYS append shift explicitly
+            fd.append("shift", "{{ shift }}");
+
             try{
-                const res = await fetch("?shift={{shift}}",{
+                const res = await fetch("",{
                     method:"POST",
                     headers:{
                         "X-CSRFToken": form.querySelector("[name=csrfmiddlewaretoken]").value,

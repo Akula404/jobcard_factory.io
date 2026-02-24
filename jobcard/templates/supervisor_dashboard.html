@@ -1,189 +1,261 @@
-<h2 class="page-title">Supervisor Dashboard — {{ today }}</h2>
+{% load custom_filters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Supervisor Dashboard</title>
 
 <style>
-body {
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    margin: 0;
-    background: linear-gradient(135deg, #e0f2fe, #dbeafe);
-    color: #1f2937;
+body{
+    font-family:'Segoe UI',system-ui,sans-serif;
+    margin:0;
+    background:linear-gradient(135deg,#e0f2fe,#dbeafe);
+    color:#1f2937;
 }
 
-/* HEADER */
-.page-title {
-    text-align: center;
-    padding: 25px 15px;
-    margin: 0 0 25px 0;
-    font-size: 30px;
-    font-weight: 700;
-    background: linear-gradient(90deg, #1e3c72, #2a5298);
-    color: white;
-    letter-spacing: 1px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-    border-radius: 0 0 20px 20px;
+/* TOP CONTROLS */
+.top-bar{
+    display:flex;
+    justify-content:flex-end;
+    align-items:center;
+    gap:20px;
+    padding:20px 40px 0;
+}
+
+/* SHIFT DROPDOWN */
+.top-bar select{
+    padding:10px 14px;
+    font-size:15px;
+    border-radius:12px;
+    border:1px solid #94a3b8;
+    cursor:pointer;
+    background:white;
+    font-weight:600;
+    transition:.2s;
+}
+.top-bar select:hover{
+    border-color:#3b82f6;
+    box-shadow:0 4px 12px rgba(59,130,246,0.2);
+}
+
+/* BUTTON */
+.shift-reset-btn{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:linear-gradient(135deg,#ff416c,#ff4b2b);
+    color:white;
+    border:none;
+    padding:14px 24px;
+    font-size:15px;
+    font-weight:700;
+    border-radius:14px;
+    cursor:pointer;
+    box-shadow:0 10px 25px rgba(0,0,0,0.15);
+    transition:.25s;
+}
+.shift-reset-btn:hover{
+    transform:translateY(-2px);
+    box-shadow:0 16px 35px rgba(0,0,0,0.25);
+}
+
+/* PAGE TITLE */
+.page-title{
+    text-align:center;
+    padding:25px;
+    margin:0 0 25px;
+    font-size:32px;
+    font-weight:700;
+    background:linear-gradient(90deg,#1e3c72,#2a5298);
+    color:white;
+    border-radius:0 0 20px 20px;
+    letter-spacing:1px;
 }
 
 /* CARD */
-.line-card {
-    background: #ffffff;
-    border-radius: 20px;
-    padding: 30px;
-    margin: 25px auto;
-    width: 95%;
-    box-shadow: 0 12px 28px rgba(0,0,0,0.08);
-    transition: transform 0.3s, box-shadow 0.3s;
-    border: 1px solid #e2e8f0;
+.line-card{
+    background:#fff;
+    border-radius:20px;
+    padding:30px;
+    margin:25px auto;
+    width:95%;
+    box-shadow:0 12px 28px rgba(0,0,0,0.08);
+    transition:.3s;
+}
+.line-card:hover{
+    transform:translateY(-3px);
+    box-shadow:0 18px 38px rgba(0,0,0,0.15);
 }
 
-.line-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 18px 40px rgba(0,0,0,0.12);
-}
-
-/* LINE TITLE */
-.line-title {
-    margin: 0 0 20px 0;
-    font-size: 24px;
-    font-weight: 700;
-    background: linear-gradient(90deg, #4facfe, #00f2fe);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-/* TABLE WRAPPER */
-.wrapper {
-    overflow-x: auto;
-    border-radius: 12px;
+/* CARD TITLE */
+.line-title{
+    margin:0 0 20px;
+    font-size:26px;
+    font-weight:700;
+    background:linear-gradient(90deg,#4facfe,#00f2fe);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
 }
 
 /* TABLE */
-table {
-    width: 100%;
-    border-collapse: collapse;
-    min-width: 700px;
+.wrapper{
+    overflow-x:auto;
 }
-
-th, td {
-    padding: 12px 8px;
-    text-align: center;
-    font-size: 14px;
+table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:14px;
 }
-
-th {
-    background: #1e293b;
-    color: white;
-    font-weight: 600;
-    position: sticky;
-    top: 0;
-    z-index: 1;
+th,td{
+    padding:12px 8px;
+    text-align:center;
 }
-
-td {
-    border-bottom: 1px solid #e2e8f0;
-    transition: background 0.2s;
+th{
+    background:#1e293b;
+    color:white;
+    letter-spacing:1px;
+    font-weight:600;
 }
-
-tr:hover td {
-    background: #f0f9ff;
+.label{
+    text-align:left;
+    font-weight:600;
 }
-
-/* FIRST COLUMN LABEL */
-.label {
-    text-align: left;
-    font-weight: 600;
-    color: #334155;
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 8px;
+.total-value{
+    font-weight:800;
+    color:#0ea5e9;
 }
 
 /* LIVE DOT */
-.live-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: #10b981; /* green */
-    animation: pulse 1s infinite;
+.live-dot{
+    width:10px;
+    height:10px;
+    border-radius:50%;
+    background:#10b981;
+    display:inline-block;
+    margin-right:6px;
+    animation:pulse 1s infinite;
 }
-
-/* Pulse animation */
-@keyframes pulse {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.3); opacity: 0.6; }
-    100% { transform: scale(1); opacity: 1; }
-}
-
-/* TOTAL NUMBER */
-.total-value {
-    font-weight: 800;
-    color: #0ea5e9;
-    font-size: 16px;
-}
-
-/* HIGHLIGHT NON-ZERO HOURS */
-td:not(.label):not(.total-value) {
-    transition: background 0.3s, color 0.3s;
-}
-td:not(.label):not(.total-value):hover {
-    background: #dbeafe;
+@keyframes pulse{
+0%{transform:scale(1)}
+50%{transform:scale(1.3)}
+100%{transform:scale(1)}
 }
 
 /* RESPONSIVE */
-@media(max-width: 768px) {
-    table {
-        font-size: 13px;
+@media(max-width:768px){
+    .top-bar{
+        flex-direction:column;
+        align-items:flex-start;
     }
-    .line-title {
-        font-size: 22px;
-    }
-    .page-title {
-        font-size: 26px;
-        padding: 20px 15px;
+    .line-card{
+        width:100%;
+        padding:20px;
     }
 }
 </style>
+</head>
+<body>
 
-{% for key, data in dashboard_data.items %}
+<!-- TOP BAR -->
+<div class="top-bar">
 
-<div class="line-card">
+<!-- SHIFT VIEW SELECT -->
+<form method="get">
+<label style="font-weight:700;"><b>View Shift:</b></label>
+<select name="shift" onchange="this.form.submit()" style="font-weight:600;">
+<option value="Day" {% if shift == "Day" %}selected{% endif %}><b>Day</b></option>
+<option value="Night" {% if shift == "Night" %}selected{% endif %}><b>Night</b></option>
+</select>
+</form>
 
-    <h3 class="line-title">{{ key|cut:"_Day"|cut:"_Night"|title }}</h3>
+<!-- RESET SHIFT -->
+<form id="resetForm" method="post" action="{% url 'jobcard:reset_shift' %}" onsubmit="return confirmResetShift();">
+    {% csrf_token %}
+    <input type="hidden" name="shift" value="{{ shift }}">
+    <button type="submit" class="shift-reset-btn" style="font-weight:700;">⟳ Start {{ shift }} Shift</button>
+</form>
 
-    <div class="wrapper">
-        <table>
-            <tr>
-                <th>Hourly Updates</th>
-                {% for i in hour_range %}
-                    <th>H{{i}}</th>
-                {% endfor %}
-                <th>Total</th>
-            </tr>
-
-            <tr>
-                <td class="label">
-                    <span class="live-dot"></span> Real-Time Output
-                </td>
-                {% for val in data.hour_totals %}
-                    <td>{{ val }}</td>
-                {% endfor %}
-                <td class="total-value">{{ data.total }}</td>
-            </tr>
-
-        </table>
-    </div>
+<script>
+function confirmResetShift(){
+    const shift = "{{ shift }}";
+    return confirm(`⚠️ Warning: You are about to start the ${shift} shift.\nAll current operator entries for this shift will be deleted and reset to zero.\nDo you want to continue?`);
+}
+</script>
 
 </div>
 
+<h2 class="page-title">Supervisor Dashboard — {{ today }}</h2>
+
+<div id="dashboard-container">
+
+{% for key,data in dashboard_data.items %}
+<div class="line-card">
+
+<h3 class="line-title">{{ key|cut:"_Day"|cut:"_Night"|title }}</h3>
+
+<div class="wrapper">
+<table>
+<tr>
+<th>Hourly Updates</th>
+{% for i in hour_range %}
+<th>H{{i}}</th>
+{% endfor %}
+<th>Total</th>
+</tr>
+
+<tr>
+<td class="label"><span class="live-dot"></span>Live Output</td>
+{% for val in data.hour_totals %}
+<td>{{ val }}</td>
+{% endfor %}
+<td class="total-value">{{ data.total }}</td>
+</tr>
+
+</table>
+</div>
+</div>
 {% endfor %}
 
+</div>
+
 <script>
-// Auto-refresh every 2 seconds for real-time updates
+let refreshPaused = false;
+let idleTimer;
+
+/* Pause refresh when user interacts */
+function pauseRefresh(){
+    refreshPaused = true;
+    resetIdleTimer();
+}
+["focusin","click","keydown","mousemove"].forEach(evt => {
+    document.addEventListener(evt, pauseRefresh);
+});
+
+/* Resume refresh after 15 seconds idle */
+function resetIdleTimer(){
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(()=>{ refreshPaused = false; },15000);
+}
+
+/* AUTO REFRESH DASHBOARD */
 setInterval(() => {
-    fetch(window.location.href + "?ajax=1")
+    if(refreshPaused) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const viewShift = params.get('shift') || 'Day';
+
+    fetch(`/jobcard/supervisor-dashboard/?ajax=1&shift=${viewShift}`)
     .then(res => res.json())
     .then(data => {
-        location.reload();  // Full reload is simplest for management view
+        /* reload only if locked hours changed */
+        if(data.global_locked_hours && data.global_locked_hours.length > 0){
+            location.href = `/jobcard/supervisor-dashboard/?shift=${viewShift}`;
+        }
     })
     .catch(err => console.error(err));
-}, 2000);
+
+}, 50000);
 </script>
+
+</body>
+</html>

@@ -4,6 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Filling & Packing Job Card</title>
+
 <style>
 body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f2f5f8; margin:0; padding:0; }
 h1 { text-align:center; margin-top:30px; color:#34495e; }
@@ -61,34 +62,35 @@ textarea { min-height:60px; }
 <button type="button" class="load-btn" onclick="loadJobcard()">Load JobCard</button>
 </div>
 
+<!-- Hidden fields sent in POST -->
+<input type="hidden" name="line" id="id_line" value="{{ line }}">
+<input type="hidden" name="shift" id="id_shift" value="{{ shift }}">
 
 <!-- Job Details -->
 <div class="section job-details">
 <h2>Job Details</h2>
 {{ form.date.label_tag }} {{ form.date }}
-{{ form.line.label_tag }} {{ form.line }}
-{{ form.shift.label_tag }} {{ form.shift }}
 {{ form.wo_number.label_tag }} {{ form.wo_number }}
 {{ form.product_code.label_tag }} {{ form.product_code }}
 {{ form.product_name.label_tag }} {{ form.product_name }}
 {{ form.target_quantity.label_tag }} {{ form.target_quantity }}
 </div>
 
-
 <!-- Hourly Output -->
 <div class="section hourly-output">
 <h2>Hourly Output</h2>
+
 <div class="hour-grid">
 {{ form.hour1 }} {{ form.hour2 }} {{ form.hour3 }}
 {{ form.hour4 }} {{ form.hour5 }} {{ form.hour6 }}
 {{ form.hour7 }} {{ form.hour8 }} {{ form.hour9 }}
 {{ form.hour10 }} {{ form.hour11 }}
 </div>
+
 <div class="total-output">
 Total Output: <span id="totalOutput">0</span>
 </div>
 </div>
-
 
 <!-- Damages -->
 <div class="section damages">
@@ -108,7 +110,6 @@ Total Output: <span id="totalOutput">0</span>
 </div>
 </div>
 
-
 <!-- Staff -->
 <div class="section staff">
 <h2>Operators & Supervisors</h2>
@@ -122,8 +123,18 @@ Total Output: <span id="totalOutput">0</span>
 
 </form>
 
-
 <script>
+const totalOutputEl = document.getElementById("totalOutput")
+const hours = [...Array(11)].map((_,i)=>document.getElementById(`id_hour${i+1}`))
+
+function updateTotal(){
+    let t=0
+    hours.forEach(h=>{ if(h.value) t+=parseInt(h.value)||0 })
+    totalOutputEl.textContent = t
+}
+hours.forEach(h=>h.addEventListener("input", updateTotal))
+updateTotal()
+
 function loadJobcard(){
     const line = document.getElementById("lineSelect").value;
     const shift = document.getElementById("shiftSelect").value;
@@ -136,33 +147,40 @@ function loadJobcard(){
     fetch(`/jobcard/get-jobcard/?line=${line}&shift=${shift}`)
     .then(res => res.json())
     .then(data => {
+
         if(data.error){
             alert(data.error);
             return;
         }
 
-        document.getElementById("id_line").value = line;
-        document.getElementById("id_shift").value = shift;
+        // Hidden fields
+        document.getElementById("id_line").value = line
+        document.getElementById("id_shift").value = shift
 
-        document.getElementById("id_wo_number").value = data.wo_number;
-        document.getElementById("id_product_code").value = data.product_code;
-        document.getElementById("id_product_name").value = data.product_name;
-        document.getElementById("id_target_quantity").value = data.target_quantity;
-        document.getElementById("id_operator_names").value = data.operator_names;
-        document.getElementById("id_supervisor_names").value = data.supervisor_names;
-    });
-}
+        // Job details
+        document.getElementById("id_wo_number").value = data.wo_number
+        document.getElementById("id_product_code").value = data.product_code
+        document.getElementById("id_product_name").value = data.product_name
+        document.getElementById("id_target_quantity").value = data.target_quantity
 
-// total calc
-const totalOutputEl = document.getElementById("totalOutput");
-const hours = [...Array(11)].map((_, i) => document.getElementById(`id_hour${i+1}`));
-function updateTotal(){
-    let total = 0;
-    hours.forEach(h => { if(h && h.value) total += parseInt(h.value)||0; });
-    totalOutputEl.textContent = total;
+        // Operator / Supervisor names → READONLY
+        const operatorField = document.getElementById("id_operator_names")
+        const supervisorField = document.getElementById("id_supervisor_names")
+        operatorField.value = data.operator_names
+        supervisorField.value = data.supervisor_names
+        operatorField.readOnly = true
+        supervisorField.readOnly = true
+
+        // Hourly data
+        data.hours.forEach((val,i)=>{
+            const el = document.getElementById(`id_hour${i+1}`)
+            if(el) el.value = val
+        })
+
+        updateTotal()
+    })
+    .catch(err => console.error("Error loading JobCard:", err))
 }
-hours.forEach(h => { if(h) h.addEventListener("input", updateTotal); });
-updateTotal();
 </script>
 
 </body>

@@ -193,3 +193,11 @@ class HourEntry(models.Model):
         if self.value not in [None, 0, 0.0]:
             self.is_locked = True
         super().save(*args, **kwargs)
+
+
+class ActiveShift(models.Model):
+    shift = models.CharField(max_length=10)
+    date = models.DateField()
+
+    def __str__(self):
+        return f"{self.shift} — {self.date}"
