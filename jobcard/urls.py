@@ -28,5 +28,11 @@ urlpatterns = [
     # AJAX endpoint to fetch JobCard details
     path("get-jobcard/", views.get_jobcard, name="get_jobcard"),
 
+    # CSV export
     path('export-jobcards-csv/', views.export_jobcards_csv, name='export_jobcards_csv'),
+
+    # Reset shift button
+    path('reset-shift/', views.reset_shift, name='reset_shift'),
+
+
 ]
