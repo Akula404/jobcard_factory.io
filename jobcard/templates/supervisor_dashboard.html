@@ -13,7 +13,6 @@ body{
     color:#1f2937;
 }
 
-/* TOP CONTROLS */
 .top-bar{
     display:flex;
     justify-content:flex-end;
@@ -22,7 +21,6 @@ body{
     padding:20px 40px 0;
 }
 
-/* SHIFT DROPDOWN */
 .top-bar select{
     padding:10px 14px;
     font-size:15px;
@@ -38,7 +36,6 @@ body{
     box-shadow:0 4px 12px rgba(59,130,246,0.2);
 }
 
-/* BUTTON */
 .shift-reset-btn{
     display:flex;
     align-items:center;
@@ -59,7 +56,6 @@ body{
     box-shadow:0 16px 35px rgba(0,0,0,0.25);
 }
 
-/* PAGE TITLE */
 .page-title{
     text-align:center;
     padding:25px;
@@ -72,7 +68,6 @@ body{
     letter-spacing:1px;
 }
 
-/* CARD */
 .line-card{
     background:#fff;
     border-radius:20px;
@@ -87,7 +82,6 @@ body{
     box-shadow:0 18px 38px rgba(0,0,0,0.15);
 }
 
-/* CARD TITLE */
 .line-title{
     margin:0 0 20px;
     font-size:26px;
@@ -97,7 +91,6 @@ body{
     -webkit-text-fill-color:transparent;
 }
 
-/* TABLE */
 .wrapper{
     overflow-x:auto;
 }
@@ -125,7 +118,6 @@ th{
     color:#0ea5e9;
 }
 
-/* LIVE DOT */
 .live-dot{
     width:10px;
     height:10px;
@@ -141,7 +133,6 @@ th{
 100%{transform:scale(1)}
 }
 
-/* RESPONSIVE */
 @media(max-width:768px){
     .top-bar{
         flex-direction:column;
@@ -156,10 +147,8 @@ th{
 </head>
 <body>
 
-<!-- TOP BAR -->
 <div class="top-bar">
 
-<!-- SHIFT VIEW SELECT -->
 <form method="get">
 <label style="font-weight:700;"><b>View Shift:</b></label>
 <select name="shift" onchange="this.form.submit()" style="font-weight:600;">
@@ -168,7 +157,6 @@ th{
 </select>
 </form>
 
-<!-- RESET SHIFT -->
 <form id="resetForm" method="post" action="{% url 'jobcard:reset_shift' %}" onsubmit="return confirmResetShift();">
     {% csrf_token %}
     <input type="hidden" name="shift" value="{{ shift }}">
@@ -194,6 +182,7 @@ function confirmResetShift(){
 <h3 class="line-title">{{ key|cut:"_Day"|cut:"_Night"|title }}</h3>
 
 <div class="wrapper">
+<div class="wrapper">
 <table>
 <tr>
 <th>Hourly Updates</th>
@@ -205,13 +194,23 @@ function confirmResetShift(){
 
 <tr>
 <td class="label"><span class="live-dot"></span>Live Output</td>
+
 {% for val in data.hour_totals %}
-<td>{{ val }}</td>
+<td class="hour-cell"
+    data-key="{{ key }}"
+    data-hour="{{ forloop.counter }}">
+    {{ val }}
+</td>
 {% endfor %}
-<td class="total-value">{{ data.total }}</td>
+
+<td class="total-value"
+    data-total="{{ key }}">
+    {{ data.total }}
+</td>
 </tr>
 
 </table>
+</div>
 </div>
 </div>
 {% endfor %}
@@ -220,41 +219,65 @@ function confirmResetShift(){
 
 <script>
 let refreshPaused = false;
-let idleTimer;
+let idleTimer = null;
+let isFetching = false; // prevent overlapping requests
 
-/* Pause refresh when user interacts */
-function pauseRefresh(){
+function pauseRefresh() {
     refreshPaused = true;
-    resetIdleTimer();
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => refreshPaused = false, 15000); // resume after 15s idle
 }
-["focusin","click","keydown","mousemove"].forEach(evt => {
-    document.addEventListener(evt, pauseRefresh);
+
+// pause refresh on user activity
+["focusin", "click", "keydown", "mousemove"].forEach(e => {
+    document.addEventListener(e, pauseRefresh);
 });
 
-/* Resume refresh after 15 seconds idle */
-function resetIdleTimer(){
-    clearTimeout(idleTimer);
-    idleTimer = setTimeout(()=>{ refreshPaused = false; },15000);
+function fetchDashboard() {
+    if (refreshPaused || isFetching) return; // skip if paused or previous request ongoing
+    isFetching = true;
+
+    const shift = "{{ shift }}"; // Django template variable
+
+    fetch(`/jobcard/supervisor-dashboard/?ajax=1&shift=${shift}`)
+        .then(r => r.json())
+        .then(data => {
+
+            /* -------- LOCK HOURS -------- */
+            if (data.global_locked_hours) {
+                document.querySelectorAll(".hour-cell").forEach(cell => {
+                    const h = parseInt(cell.dataset.hour);
+                    if (data.global_locked_hours.includes(h)) {
+                        cell.classList.add("locked");
+                    } else {
+                        cell.classList.remove("locked");
+                    }
+                });
+            }
+
+            /* -------- UPDATE TOTALS -------- */
+            if (data.dashboard_data) {
+                Object.entries(data.dashboard_data).forEach(([key, val]) => {
+
+                    val.hour_totals.forEach((num, i) => {
+                        const el = document.querySelector(
+                            `[data-key="${key}"][data-hour="${i + 1}"]`
+                        );
+                        if (el) el.textContent = num;
+                    });
+
+                    const total = document.querySelector(`[data-total="${key}"]`);
+                    if (total) total.textContent = val.total;
+                });
+            }
+
+        })
+        .catch(err => console.error("Dashboard fetch error:", err))
+        .finally(() => isFetching = false); // reset fetch lock
 }
 
-/* AUTO REFRESH DASHBOARD */
-setInterval(() => {
-    if(refreshPaused) return;
-
-    const params = new URLSearchParams(window.location.search);
-    const viewShift = params.get('shift') || 'Day';
-
-    fetch(`/jobcard/supervisor-dashboard/?ajax=1&shift=${viewShift}`)
-    .then(res => res.json())
-    .then(data => {
-        /* reload only if locked hours changed */
-        if(data.global_locked_hours && data.global_locked_hours.length > 0){
-            location.href = `/jobcard/supervisor-dashboard/?shift=${viewShift}`;
-        }
-    })
-    .catch(err => console.error(err));
-
-}, 50000);
+// Poll every 5 seconds instead of 2
+setInterval(fetchDashboard, 3000);
 </script>
 
 </body>

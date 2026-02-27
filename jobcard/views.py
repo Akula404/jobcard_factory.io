@@ -159,11 +159,102 @@ def supervisor_dashboard(request):
         if filled_lines >= len(lines):
             global_locked_hours.append(h)
 
-    # AJAX refresh endpoint
+    # =========================
+    # AJAX REALTIME ENDPOINT
+    # =========================
     if request.GET.get("ajax") == "1":
-        return JsonResponse({"global_locked_hours": global_locked_hours})
 
+        dashboard_data = {}
+
+        for sub in submissions:
+            key = f"{sub.line}_{sub.shift}"
+
+            if key not in dashboard_data:
+                dashboard_data[key] = {
+                    "hour_totals": [0]*11,
+                    "total": 0
+                }
+
+            hours = [
+                sub.hour1, sub.hour2, sub.hour3, sub.hour4, sub.hour5,
+                sub.hour6, sub.hour7, sub.hour8, sub.hour9, sub.hour10, sub.hour11
+            ]
+
+            for i in range(11):
+                dashboard_data[key]["hour_totals"][i] += hours[i] or 0
+
+            dashboard_data[key]["total"] += sub.total_output()
+
+        return JsonResponse({
+            "global_locked_hours": global_locked_hours,
+            "dashboard_data": dashboard_data
+        })
+
+    # =========================
+    # NORMAL PAGE LOAD
+    # =========================
     dashboard_data = {}
+
+    for sub in submissions:
+        key = f"{sub.line}_{sub.shift}"
+        if key not in dashboard_data:
+            dashboard_data[key] = {"submissions": [], "hour_totals": [0]*11, "total": 0}
+
+        dashboard_data[key]["submissions"].append(sub)
+
+        hours = [
+            sub.hour1, sub.hour2, sub.hour3, sub.hour4, sub.hour5,
+            sub.hour6, sub.hour7, sub.hour8, sub.hour9, sub.hour10, sub.hour11
+        ]
+
+        for i in range(11):
+            dashboard_data[key]["hour_totals"][i] += hours[i] or 0
+
+        dashboard_data[key]["total"] += sub.total_output()
+
+    return render(request, "supervisor_dashboard.html", {
+        "dashboard_data": dashboard_data,
+        "today": today,
+        "hour_range": range(1, 12),
+        "shift": shift
+    })
+
+    # =========================
+    # AJAX REALTIME ENDPOINT
+    # =========================
+    if request.GET.get("ajax") == "1":
+
+        dashboard_data = {}
+
+        for sub in submissions:
+            key = f"{sub.line}_{sub.shift}"
+
+            if key not in dashboard_data:
+                dashboard_data[key] = {
+                    "hour_totals": [0]*11,
+                    "total": 0
+                }
+
+            hours = [
+                sub.hour1, sub.hour2, sub.hour3, sub.hour4, sub.hour5,
+                sub.hour6, sub.hour7, sub.hour8, sub.hour9, sub.hour10, sub.hour11
+            ]
+
+            for i in range(11):
+                dashboard_data[key]["hour_totals"][i] += hours[i] or 0
+
+            dashboard_data[key]["total"] += sub.total_output()
+
+        return JsonResponse({
+            "global_locked_hours": global_locked_hours,
+            "dashboard_data": dashboard_data
+        })
+
+    # =========================
+    # NORMAL PAGE LOAD
+    # =========================
+    dashboard_data = {}
+
     for sub in submissions:
         key = f"{sub.line}_{sub.shift}"
         if key not in dashboard_data:
@@ -255,12 +346,14 @@ def jobcard_operator_entry(request):
 
     jobcard_date = today if shift.lower() == "day" else today - timedelta(days=1)
     jobcard, created = JobCard.objects.get_or_create(date=jobcard_date, line=line, shift=shift)
-    temp_data = TempSubmission.objects.filter(date=today if shift=="Day" else jobcard_date, line=line, shift=shift).first()
+
+    # ✅ Load TempSubmission hours
+    temp_data = TempSubmission.objects.filter(date=jobcard_date, line=line, shift__iexact=shift).first()
+    if temp_data:
+        for i in range(1, 12):
+            setattr(jobcard, f"hour{i}", getattr(temp_data, f"hour{i}", 0))
 
     if request.method == "POST":
-        if temp_data:
-            for i in range(1, 12):
-                setattr(jobcard, f"hour{i}", getattr(temp_data, f"hour{i}", 0))
         form = JobCardForm(request.POST, instance=jobcard)
         if form.is_valid():
             obj = form.save(commit=False)
@@ -272,9 +365,6 @@ def jobcard_operator_entry(request):
             messages.error(request, "Please correct the errors below.")
     else:
         form = JobCardForm(instance=jobcard)
-        if temp_data:
-            for i in range(1, 12):
-                setattr(form.instance, f"hour{i}", getattr(temp_data, f"hour{i}", 0))
 
     return render(request, "jobcard_form.html", {"form": form, "shift": shift, "line": line})
 
@@ -328,17 +418,18 @@ def jobcard_prepopulate(request):
 # -----------------------------
 def get_jobcard(request):
     line = request.GET.get("line")
+    now = timezone.localtime()
 
-    today = timezone.localdate()
-
-    # ✅ always match active shift
+    # ✅ ALWAYS trust ActiveShift (single source of truth)
     active = ActiveShift.objects.first()
-    if active:
-        shift = active.shift
-        target_date = active.date
-    else:
-        shift = "Day"
-        target_date = today
+
+    if not active:
+        return JsonResponse({"error": "No active shift set. Please wait for supervisor to start a shift."})
+
+    shift = active.shift.strip()
+    target_date = active.date
+
+    print("DEBUG →", line, shift, target_date, "| TIME:", now)
 
     try:
         job = JobCard.objects.get(
@@ -350,12 +441,16 @@ def get_jobcard(request):
         temp = TempSubmission.objects.filter(
             date=target_date,
             line=line,
-            shift=shift
+            shift__iexact=shift
         ).first()
 
-        hours = [0]*11
-        if temp:
-            hours = [getattr(temp, f"hour{i}", 0) or 0 for i in range(1, 12)]
+        # hourly values
+        hours = []
+        for i in range(1, 12):
+            if temp and getattr(temp, f"hour{i}", None) is not None:
+                hours.append(getattr(temp, f"hour{i}"))
+            else:
+                hours.append(getattr(job, f"hour{i}", 0))
 
         return JsonResponse({
             "wo_number": job.wo_number,
