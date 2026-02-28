@@ -62,8 +62,8 @@ textarea { min-height:60px; }
 </div>
 
 <!-- Hidden fields sent in POST -->
-<input type="number" id="id_hour1" name="hour1" value="{{ form.hour1.value|default_if_none:'' }}">
-<input type="number" id="id_hour11" name="hour11" value="{{ form.hour11.value|default_if_none:'' }}">
+<input type="hidden" name="line" id="id_line" value="{{ line }}">
+<input type="hidden" name="shift" id="id_shift" value="{{ shift }}">
 
 <!-- Job Details -->
 <div class="section job-details">
