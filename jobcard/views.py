@@ -463,3 +463,14 @@ def get_jobcard(request):
         })
     except JobCard.DoesNotExist:
         return JsonResponse({"error": "No JobCard found for this line & shift"})
+
+
+def csrf_failure(request, reason=""):
+    """
+    Custom CSRF failure page.
+    Shows a simple friendly message instead of scary 403 debug.
+    """
+    return render(request, "csrf_failure.html", {
+        "message": "Oops! Your session expired or network was interrupted. Please reload the page and try again.",
+        "reason": reason
+    })
