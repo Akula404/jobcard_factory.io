@@ -436,36 +436,17 @@ def jobcard_prepopulate(request):
 # -----------------------------
 def get_jobcard(request):
     line = request.GET.get("line")
-    now = timezone.localtime()
-
-    # ✅ ALWAYS trust ActiveShift (single source of truth)
-    active = ActiveShift.objects.first()
-
-    if not active:
-        return JsonResponse({"error": "No active shift set. Please wait for supervisor to start a shift."})
-
-    shift = active.shift.strip()
-    target_date = active.date
-
-    print("DEBUG →", line, shift, target_date, "| TIME:", now)
+    shift = request.GET.get("shift")  # use dropdown selection
+    today = timezone.localdate()
+    target_date = today if shift=="Day" else today - timedelta(days=1)
 
     try:
-        job = JobCard.objects.get(
-            line=line,
-            shift=shift,
-            date=target_date
-        )
+        job = JobCard.objects.get(line=line, shift__iexact=shift, date=target_date)
+        temp = TempSubmission.objects.filter(date=target_date, line=line, shift__iexact=shift).first()
 
-        temp = TempSubmission.objects.filter(
-            date=target_date,
-            line=line,
-            shift__iexact=shift
-        ).first()
-
-        # hourly values
         hours = []
         for i in range(1, 12):
-            if temp and getattr(temp, f"hour{i}", None) is not None:
+            if temp and getattr(temp, f"hour{i}", None):
                 hours.append(getattr(temp, f"hour{i}"))
             else:
                 hours.append(getattr(job, f"hour{i}", 0))
@@ -480,6 +461,5 @@ def get_jobcard(request):
             "hours": hours,
             "submitted": bool(job.is_submitted)
         })
-
     except JobCard.DoesNotExist:
         return JsonResponse({"error": "No JobCard found for this line & shift"})
