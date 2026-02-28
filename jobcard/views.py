@@ -377,13 +377,18 @@ def jobcard_success(request):
 # -----------------------------
 # JOBCARD PREPOPULATE
 # -----------------------------
+from django.views.decorators.csrf import csrf_protect
+
+@csrf_protect
 def jobcard_prepopulate(request):
     today = timezone.localdate()
+
     if request.method == "POST":
         form = JobCardPrepopulateForm(request.POST)
         if form.is_valid():
             line = form.cleaned_data['line']
             shift = form.cleaned_data['shift']
+
             jobcard, created = JobCard.objects.get_or_create(
                 date=today if shift=="Day" else today - timedelta(days=1),
                 line=line,
@@ -397,7 +402,9 @@ def jobcard_prepopulate(request):
                     "supervisor_names": form.cleaned_data.get("supervisor_names", ""),
                 }
             )
+
             if not created:
+                # Update existing record without creating duplicates
                 jobcard.wo_number = form.cleaned_data['wo_number']
                 jobcard.product_code = form.cleaned_data['product_code']
                 jobcard.product_name = form.cleaned_data['product_name']
@@ -408,10 +415,15 @@ def jobcard_prepopulate(request):
                 messages.success(request, f"JobCard for {line} ({shift}) updated.")
             else:
                 messages.success(request, f"JobCard for {line} ({shift}) created.")
+
             return redirect('jobcard:jobcard_prepopulate')
     else:
         form = JobCardPrepopulateForm()
-    return render(request, "jobcard_prepopulate.html", {"form": form})
+
+    return render(request, "jobcard_prepopulate.html", {
+        "form": form,
+        "today": today
+    })
 
 # -----------------------------
 # GET JOBCARD AJAX (OPERATOR PANEL)
