@@ -56,20 +56,13 @@ def temp_submission(request):
     today = timezone.localdate()
     user = request.user if request.user.is_authenticated else None
 
-    # ✅ ALWAYS follow supervisor-selected shift
-    active = ActiveShift.objects.first()
-    if active:
-        shift = active.shift
-        target_date = active.date
-    else:
-        shift = "Day"
-        target_date = today
-
     lines = [l[0] for l in LINE_CHOICES]
     forms_data = []
 
-    # ---------------- AJAX SAVE ----------------
+    # ---------------- POST / AJAX SAVE ----------------
     if request.method == "POST" and request.headers.get("x-requested-with") == "XMLHttpRequest":
+        shift = request.POST.get("shift")  # use shift from form
+        target_date = today if shift == "Day" else today - timedelta(days=1)
         line = request.POST.get("line")
 
         obj, _ = TempSubmission.objects.get_or_create(
@@ -88,7 +81,6 @@ def temp_submission(request):
 
             if new_val in [None, ""]:
                 continue
-
             try:
                 new_val = float(new_val)
             except:
@@ -107,6 +99,23 @@ def temp_submission(request):
         return JsonResponse({"success": True, "updated": updated_fields})
 
     # ---------------- PAGE LOAD ----------------
+    selected_shift = request.GET.get("shift")
+
+    if selected_shift:
+        # If user explicitly selected shift → load that
+        shift = selected_shift
+        target_date = today if shift == "Day" else today - timedelta(days=1)
+    else:
+        # Fallback → use ActiveShift
+        active = ActiveShift.objects.first()
+        if active:
+            shift = active.shift
+            target_date = active.date
+        else:
+            shift = "Day"
+            target_date = today
+
+    # Load TempSubmission objects per line
     for line in lines:
         obj, _ = TempSubmission.objects.get_or_create(
             operator=user,
@@ -114,7 +123,6 @@ def temp_submission(request):
             shift=shift,
             line=line
         )
-
         form = TempSubmissionForm(instance=obj)
         forms_data.append((line, form, obj))
 
@@ -126,18 +134,61 @@ def temp_submission(request):
 # -----------------------------
 # SUPERVISOR DASHBOARD
 # -----------------------------
-def supervisor_dashboard(request):
+def temp_submission(request):
     today = timezone.localdate()
+    user = request.user if request.user.is_authenticated else None
 
-    # PRIORITY 1 → manual selection from dropdown
+    lines = [l[0] for l in LINE_CHOICES]
+    forms_data = []
+
+    # ---------------- POST / AJAX SAVE ----------------
+    if request.method == "POST" and request.headers.get("x-requested-with") == "XMLHttpRequest":
+        shift = request.POST.get("shift")  # use shift from form
+        target_date = today if shift == "Day" else today - timedelta(days=1)
+        line = request.POST.get("line")
+
+        obj, _ = TempSubmission.objects.get_or_create(
+            operator=user,
+            date=target_date,
+            shift=shift,
+            line=line
+        )
+
+        updated_fields = []
+
+        for i in range(1, 12):
+            field = f"hour{i}"
+            new_val = request.POST.get(field)
+            old_val = getattr(obj, field)
+
+            if new_val in [None, ""]:
+                continue
+            try:
+                new_val = float(new_val)
+            except:
+                continue
+
+            if old_val not in [None, 0, 0.0]:
+                return JsonResponse({"error": f"{field.upper()} already submitted and locked."}, status=403)
+
+            if new_val == 0:
+                continue
+
+            setattr(obj, field, new_val)
+            updated_fields.append(i)
+
+        obj.save()
+        return JsonResponse({"success": True, "updated": updated_fields})
+
+    # ---------------- PAGE LOAD ----------------
     selected_shift = request.GET.get("shift")
 
     if selected_shift:
+        # If user explicitly selected shift → load that
         shift = selected_shift
         target_date = today if shift == "Day" else today - timedelta(days=1)
-
     else:
-        # PRIORITY 2 → system active shift
+        # Fallback → use ActiveShift
         active = ActiveShift.objects.first()
         if active:
             shift = active.shift
@@ -146,136 +197,19 @@ def supervisor_dashboard(request):
             shift = "Day"
             target_date = today
 
-    submissions = TempSubmission.objects.filter(
-        date=target_date,
-        shift=shift
-    ).order_by('line', 'operator')
+    # Load TempSubmission objects per line
+    for line in lines:
+        obj, _ = TempSubmission.objects.get_or_create(
+            operator=user,
+            date=target_date,
+            shift=shift,
+            line=line
+        )
+        form = TempSubmissionForm(instance=obj)
+        forms_data.append((line, form, obj))
 
-    lines = [l[0] for l in LINE_CHOICES]
-    global_locked_hours = []
-
-    for h in range(1, 12):
-        filled_lines = submissions.exclude(**{f"hour{h}__isnull": True}).exclude(**{f"hour{h}": 0}).values("line").distinct().count()
-        if filled_lines >= len(lines):
-            global_locked_hours.append(h)
-
-    # =========================
-    # AJAX REALTIME ENDPOINT
-    # =========================
-    if request.GET.get("ajax") == "1":
-
-        dashboard_data = {}
-
-        for sub in submissions:
-            key = f"{sub.line}_{sub.shift}"
-
-            if key not in dashboard_data:
-                dashboard_data[key] = {
-                    "hour_totals": [0]*11,
-                    "total": 0
-                }
-
-            hours = [
-                sub.hour1, sub.hour2, sub.hour3, sub.hour4, sub.hour5,
-                sub.hour6, sub.hour7, sub.hour8, sub.hour9, sub.hour10, sub.hour11
-            ]
-
-            for i in range(11):
-                dashboard_data[key]["hour_totals"][i] += hours[i] or 0
-
-            dashboard_data[key]["total"] += sub.total_output()
-
-        return JsonResponse({
-            "global_locked_hours": global_locked_hours,
-            "dashboard_data": dashboard_data
-        })
-
-    # =========================
-    # NORMAL PAGE LOAD
-    # =========================
-    dashboard_data = {}
-
-    for sub in submissions:
-        key = f"{sub.line}_{sub.shift}"
-        if key not in dashboard_data:
-            dashboard_data[key] = {"submissions": [], "hour_totals": [0]*11, "total": 0}
-
-        dashboard_data[key]["submissions"].append(sub)
-
-        hours = [
-            sub.hour1, sub.hour2, sub.hour3, sub.hour4, sub.hour5,
-            sub.hour6, sub.hour7, sub.hour8, sub.hour9, sub.hour10, sub.hour11
-        ]
-
-        for i in range(11):
-            dashboard_data[key]["hour_totals"][i] += hours[i] or 0
-
-        dashboard_data[key]["total"] += sub.total_output()
-
-    return render(request, "supervisor_dashboard.html", {
-        "dashboard_data": dashboard_data,
-        "today": today,
-        "hour_range": range(1, 12),
-        "shift": shift
-    })
-
-    # =========================
-    # AJAX REALTIME ENDPOINT
-    # =========================
-    if request.GET.get("ajax") == "1":
-
-        dashboard_data = {}
-
-        for sub in submissions:
-            key = f"{sub.line}_{sub.shift}"
-
-            if key not in dashboard_data:
-                dashboard_data[key] = {
-                    "hour_totals": [0]*11,
-                    "total": 0
-                }
-
-            hours = [
-                sub.hour1, sub.hour2, sub.hour3, sub.hour4, sub.hour5,
-                sub.hour6, sub.hour7, sub.hour8, sub.hour9, sub.hour10, sub.hour11
-            ]
-
-            for i in range(11):
-                dashboard_data[key]["hour_totals"][i] += hours[i] or 0
-
-            dashboard_data[key]["total"] += sub.total_output()
-
-        return JsonResponse({
-            "global_locked_hours": global_locked_hours,
-            "dashboard_data": dashboard_data
-        })
-
-    # =========================
-    # NORMAL PAGE LOAD
-    # =========================
-    dashboard_data = {}
-
-    for sub in submissions:
-        key = f"{sub.line}_{sub.shift}"
-        if key not in dashboard_data:
-            dashboard_data[key] = {"submissions": [], "hour_totals": [0]*11, "total": 0}
-
-        dashboard_data[key]["submissions"].append(sub)
-
-        hours = [
-            sub.hour1, sub.hour2, sub.hour3, sub.hour4, sub.hour5,
-            sub.hour6, sub.hour7, sub.hour8, sub.hour9, sub.hour10, sub.hour11
-        ]
-
-        for i in range(11):
-            dashboard_data[key]["hour_totals"][i] += hours[i] or 0
-
-        dashboard_data[key]["total"] += sub.total_output()
-
-    return render(request, "supervisor_dashboard.html", {
-        "dashboard_data": dashboard_data,
-        "today": today,
-        "hour_range": range(1, 12),
+    return render(request, "temp_submission_form.html", {
+        "forms_data": forms_data,
         "shift": shift
     })
 
