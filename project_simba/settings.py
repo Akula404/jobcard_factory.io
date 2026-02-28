@@ -32,10 +32,10 @@ INSTALLED_APPS = [
 # ----------------------------
 # CSRF & Security Settings
 # ----------------------------
-CSRF_FAILURE_VIEW = 'jobcard.views.csrf_failure'  # Custom user-friendly CSRF page
+#CSRF_FAILURE_VIEW = 'jobcard.views.csrf_failure'  # Custom user-friendly CSRF page
 
 # Optional: make CSRF cookies secure (if using HTTPS)
-CSRF_COOKIE_SECURE = True
+#CSRF_COOKIE_SECURE = True
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
