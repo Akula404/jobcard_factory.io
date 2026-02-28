@@ -3,11 +3,12 @@ from django.urls import reverse
 from django.utils import timezone
 from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
-from .forms import TempSubmissionForm, JobCardForm, JobCardPrepopulateForm
-from .models import TempSubmission, ShiftSubmission, JobCard, LINE_CHOICES
+from django.views.decorators.csrf import csrf_protect
 from datetime import timedelta
 import csv
-from .models import ActiveShift
+
+from .forms import TempSubmissionForm, JobCardForm, JobCardPrepopulateForm
+from .models import TempSubmission, ShiftSubmission, JobCard, LINE_CHOICES, ActiveShift
 
 # -----------------------------
 # CSV EXPORT
@@ -55,13 +56,12 @@ def export_jobcards_csv(request):
 def temp_submission(request):
     today = timezone.localdate()
     user = request.user if request.user.is_authenticated else None
-
     lines = [l[0] for l in LINE_CHOICES]
     forms_data = []
 
     # ---------------- POST / AJAX SAVE ----------------
     if request.method == "POST" and request.headers.get("x-requested-with") == "XMLHttpRequest":
-        shift = request.POST.get("shift")  # use shift from form
+        shift = request.POST.get("shift")
         target_date = today if shift == "Day" else today - timedelta(days=1)
         line = request.POST.get("line")
 
@@ -102,93 +102,11 @@ def temp_submission(request):
     selected_shift = request.GET.get("shift")
 
     if selected_shift:
-        # If user explicitly selected shift → load that
+        # Manual shift selection
         shift = selected_shift
         target_date = today if shift == "Day" else today - timedelta(days=1)
     else:
-        # Fallback → use ActiveShift
-        active = ActiveShift.objects.first()
-        if active:
-            shift = active.shift
-            target_date = active.date
-        else:
-            shift = "Day"
-            target_date = today
-
-    # Load TempSubmission objects per line
-    for line in lines:
-        obj, _ = TempSubmission.objects.get_or_create(
-            operator=user,
-            date=target_date,
-            shift=shift,
-            line=line
-        )
-        form = TempSubmissionForm(instance=obj)
-        forms_data.append((line, form, obj))
-
-    return render(request, "temp_submission_form.html", {
-        "forms_data": forms_data,
-        "shift": shift
-    })
-
-# -----------------------------
-# SUPERVISOR DASHBOARD
-# -----------------------------
-def temp_submission(request):
-    today = timezone.localdate()
-    user = request.user if request.user.is_authenticated else None
-
-    lines = [l[0] for l in LINE_CHOICES]
-    forms_data = []
-
-    # ---------------- POST / AJAX SAVE ----------------
-    if request.method == "POST" and request.headers.get("x-requested-with") == "XMLHttpRequest":
-        shift = request.POST.get("shift")  # use shift from form
-        target_date = today if shift == "Day" else today - timedelta(days=1)
-        line = request.POST.get("line")
-
-        obj, _ = TempSubmission.objects.get_or_create(
-            operator=user,
-            date=target_date,
-            shift=shift,
-            line=line
-        )
-
-        updated_fields = []
-
-        for i in range(1, 12):
-            field = f"hour{i}"
-            new_val = request.POST.get(field)
-            old_val = getattr(obj, field)
-
-            if new_val in [None, ""]:
-                continue
-            try:
-                new_val = float(new_val)
-            except:
-                continue
-
-            if old_val not in [None, 0, 0.0]:
-                return JsonResponse({"error": f"{field.upper()} already submitted and locked."}, status=403)
-
-            if new_val == 0:
-                continue
-
-            setattr(obj, field, new_val)
-            updated_fields.append(i)
-
-        obj.save()
-        return JsonResponse({"success": True, "updated": updated_fields})
-
-    # ---------------- PAGE LOAD ----------------
-    selected_shift = request.GET.get("shift")
-
-    if selected_shift:
-        # If user explicitly selected shift → load that
-        shift = selected_shift
-        target_date = today if shift == "Day" else today - timedelta(days=1)
-    else:
-        # Fallback → use ActiveShift
+        # Fallback to ActiveShift
         active = ActiveShift.objects.first()
         if active:
             shift = active.shift
@@ -220,7 +138,6 @@ def reset_shift(request):
     if request.method == "POST":
         shift = request.POST.get("shift")
         today = timezone.localdate()
-
         target_date = today if shift == "Day" else today - timedelta(days=1)
 
         # save active shift
@@ -242,7 +159,8 @@ def reset_shift(request):
 # -----------------------------
 def finalize_shift(request, line, shift):
     today = timezone.localdate()
-    submissions = TempSubmission.objects.filter(date=today if shift=="Day" else today - timedelta(days=1), line=line, shift=shift)
+    target_date = today if shift=="Day" else today - timedelta(days=1)
+    submissions = TempSubmission.objects.filter(date=target_date, line=line, shift=shift)
 
     aggregated_data = [{
         "operator": s.operator.username if s.operator else "Anonymous",
@@ -253,7 +171,7 @@ def finalize_shift(request, line, shift):
     } for s in submissions]
 
     shift_submission, created = ShiftSubmission.objects.get_or_create(
-        date=today if shift=="Day" else today - timedelta(days=1),
+        date=target_date,
         line=line,
         shift=shift,
         defaults={"aggregated_data": aggregated_data}
@@ -281,16 +199,13 @@ def jobcard_operator_entry(request):
     jobcard_date = today if shift.lower() == "day" else today - timedelta(days=1)
     jobcard, created = JobCard.objects.get_or_create(date=jobcard_date, line=line, shift=shift)
 
-    # ✅ Load TempSubmission hours if available
+    # Load TempSubmission hours if available
     temp_submissions = TempSubmission.objects.filter(date=jobcard_date, line=line, shift__iexact=shift)
-    
-    # Merge hours from the latest TempSubmission
     if temp_submissions.exists():
         temp = temp_submissions.latest('id')  # get the most recent
         for i in range(1, 12):
             temp_hour = getattr(temp, f"hour{i}", None)
             jobcard_hour = getattr(jobcard, f"hour{i}", 0)
-            # Use temp value if it exists, otherwise keep JobCard value
             setattr(jobcard, f"hour{i}", temp_hour if temp_hour not in [None, 0] else jobcard_hour)
 
     if request.method == "POST":
@@ -317,8 +232,6 @@ def jobcard_success(request):
 # -----------------------------
 # JOBCARD PREPOPULATE
 # -----------------------------
-from django.views.decorators.csrf import csrf_protect
-
 @csrf_protect
 def jobcard_prepopulate(request):
     today = timezone.localdate()
@@ -344,7 +257,6 @@ def jobcard_prepopulate(request):
             )
 
             if not created:
-                # Update existing record without creating duplicates
                 jobcard.wo_number = form.cleaned_data['wo_number']
                 jobcard.product_code = form.cleaned_data['product_code']
                 jobcard.product_name = form.cleaned_data['product_name']
@@ -370,7 +282,7 @@ def jobcard_prepopulate(request):
 # -----------------------------
 def get_jobcard(request):
     line = request.GET.get("line")
-    shift = request.GET.get("shift")  # use dropdown selection
+    shift = request.GET.get("shift")
     today = timezone.localdate()
     target_date = today if shift=="Day" else today - timedelta(days=1)
 
@@ -397,14 +309,3 @@ def get_jobcard(request):
         })
     except JobCard.DoesNotExist:
         return JsonResponse({"error": "No JobCard found for this line & shift"})
-
-
-# def csrf_failure(request, reason=""):
-#     """
-#     Custom CSRF failure page.
-#     Shows a simple friendly message instead of scary 403 debug.
-#     """
-#     return render(request, "csrf_failure.html", {
-#         "message": "Oops! Your session expired or network was interrupted. Please reload the page and try again.",
-#         "reason": reason
-#     })
