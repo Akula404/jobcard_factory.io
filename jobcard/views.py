@@ -347,11 +347,17 @@ def jobcard_operator_entry(request):
     jobcard_date = today if shift.lower() == "day" else today - timedelta(days=1)
     jobcard, created = JobCard.objects.get_or_create(date=jobcard_date, line=line, shift=shift)
 
-    # ✅ Load TempSubmission hours
-    temp_data = TempSubmission.objects.filter(date=jobcard_date, line=line, shift__iexact=shift).first()
-    if temp_data:
+    # ✅ Load TempSubmission hours if available
+    temp_submissions = TempSubmission.objects.filter(date=jobcard_date, line=line, shift__iexact=shift)
+    
+    # Merge hours from the latest TempSubmission
+    if temp_submissions.exists():
+        temp = temp_submissions.latest('id')  # get the most recent
         for i in range(1, 12):
-            setattr(jobcard, f"hour{i}", getattr(temp_data, f"hour{i}", 0))
+            temp_hour = getattr(temp, f"hour{i}", None)
+            jobcard_hour = getattr(jobcard, f"hour{i}", 0)
+            # Use temp value if it exists, otherwise keep JobCard value
+            setattr(jobcard, f"hour{i}", temp_hour if temp_hour not in [None, 0] else jobcard_hour)
 
     if request.method == "POST":
         form = JobCardForm(request.POST, instance=jobcard)
