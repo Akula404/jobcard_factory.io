@@ -465,3 +465,7 @@ def get_jobcard(request):
 
     except JobCard.DoesNotExist:
         return JsonResponse({"error": "No JobCard found for this line & shift"})
+
+# Custom CSRF Failure View
+def custom_csrf_failure(request, reason=""):
+    return render(request, "csrf_error.html", status=403)
