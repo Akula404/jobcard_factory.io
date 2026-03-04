@@ -1,169 +1,222 @@
-{% load custom_filters %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Filling & Packing Job Card</title>
+<h2 class="title">Operator Entry Panel</h2>
 
 <style>
-body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f2f5f8; margin:0; padding:0; }
-h1 { text-align:center; margin-top:30px; color:#34495e; }
-form { background:#fff; max-width:1000px; margin:30px auto; padding:30px 40px; border-radius:12px; box-shadow:0 6px 20px rgba(0,0,0,0.1); }
-.section { margin-bottom:30px; padding:15px 20px; border-radius:10px; }
-.section h2 { border-bottom:2px solid #2980b9; color:#2980b9; padding-bottom:8px; margin-bottom:15px; }
-.job-details { background:#fdfdfd; }
-.hourly-output { background:#eaf3fc; }
-.damages { background:#fdecea; }
-.staff { background:#fef9e7; }
-label { display:block; font-weight:bold; margin-top:10px; }
-input, select, textarea { width:100%; padding:8px 10px; margin-top:5px; border-radius:6px; border:1px solid #ccc; box-sizing:border-box; }
-input[readonly], textarea[readonly] { background-color: #f0f0f0; }
-.hour-grid, .damage-grid { display:flex; flex-wrap:wrap; gap:15px; }
-.hour-grid div, .damage-grid div { flex:1 1 120px; min-width:120px; }
-textarea { min-height:60px; }
-.submit-btn { background:#27ae60; color:white; padding:12px 30px; border:none; border-radius:6px; font-size:16px; cursor:pointer; display:block; margin:30px auto 0; transition:0.3s; }
-.submit-btn:hover { background:#2ecc71; }
-.total-output { margin-top:10px; font-weight:bold; color:#e67e22; }
-.load-btn { background:#2980b9;color:white;padding:10px;border:none;border-radius:6px;margin-top:10px;cursor:pointer }
+body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: linear-gradient(135deg, #f0f4f8, #ffffff);
+    margin: 0;
+    padding: 30px;
+}
+
+/* HEADER */
+.title {
+    text-align: center;
+    color: #1e293b;
+    margin-bottom: 40px;
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+/* CARD */
+.line-card {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 30px;
+    margin-bottom: 30px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    transition: transform 0.25s, box-shadow 0.25s;
+    border: 1px solid #e2e8f0;
+}
+
+.line-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.12);
+}
+
+/* LINE TITLE */
+.line-title {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    color: #0f172a;
+    border-bottom: 2px solid #e0e7ff;
+    padding-bottom: 6px;
+}
+
+/* HOUR LABEL GRID */
+.hour-labels {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.hour-labels span {
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: #475569;
+}
+
+/* INPUT GRID */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+/* INPUT */
+input[type=number] {
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #cbd5e1;
+    text-align: center;
+    font-size: 16px;
+    font-weight: 600;
+    background: #f8fafc;
+    transition: all 0.2s;
+}
+
+input[type=number]:focus {
+    outline: none;
+    border-color: #2563eb;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    transform: scale(1.05);
+}
+
+input.locked {
+    background: #e2e8f0 !important;
+    border-color: #94a3b8 !important;
+    color: #475569;
+}
+
+/* TOTAL BOX */
+.total-box {
+    margin-top: 12px;
+    padding: 12px 16px;
+    background: linear-gradient(90deg, #e0f2fe, #f0f9ff);
+    border-radius: 10px;
+    font-weight: 600;
+    color: #1e293b;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid #bae6fd;
+    font-size: 16px;
+}
+
+.total-value {
+    font-size: 22px;
+    color: #0ea5e9;
+    font-weight: 800;
+}
+
+/* RESPONSIVE ADJUSTMENTS */
+@media(max-width: 600px){
+    .grid, .hour-labels {
+        grid-template-columns: repeat(auto-fit, minmax(45px, 1fr));
+    }
+    .line-title {
+        font-size: 20px;
+    }
+    input[type=number] {
+        font-size: 14px;
+    }
+}
 </style>
-</head>
-<body>
 
-<h1>Filling & Packing Job Card</h1>
+{% for line, form, obj in forms_data %}
+<div class="line-card">
+    <div class="line-title">{{ line|title }}</div>
+    <form class="line-form" data-line="{{ line }}">
+        {% csrf_token %}
+        <input type="hidden" name="line" value="{{ line }}">
+        <input type="hidden" name="shift" value="{{ shift }}">
+        <input type="hidden" name="date" value="{{ unified_date }}">  <!-- unified date logic -->
 
-<form method="post">
-{% csrf_token %}
+        <!-- Hour Labels -->
+        <div class="hour-labels">
+            <span>H1</span><span>H2</span><span>H3</span>
+            <span>H4</span><span>H5</span><span>H6</span>
+            <span>H7</span><span>H8</span><span>H9</span>
+            <span>H10</span><span>H11</span>
+        </div>
 
-<!-- SELECT LINE + SHIFT -->
-<div class="section job-details">
-<h2>Select Workstation</h2>
-<label>Line</label>
-<select id="lineSelect">
-<option value="">---------</option>
-<option value="FL001">FL 001</option>
-<option value="FL006">FL 006</option>
-<option value="FL007">FL 007</option>
-<option value="FL008">FL 008</option>
-<option value="FL009">FL 009</option>
-<option value="FL010">FL 010</option>
-<option value="FL013">FL 013</option>
-<option value="FL015">FL 015</option>
-<option value="COPACK">CO-PACKING</option>
-</select>
+        <!-- Inputs -->
+        <div class="grid">
+            {% for i in "1234567891011" %}
+            <input type="number" name="hour{{ i }}" value="{{ obj|get_hour:i }}" {% if obj|get_hour:i %}disabled class="locked"{% endif %}>
+            {% endfor %}
+        </div>
 
-<label>Shift</label>
-<select id="shiftSelect">
-<option value="">---------</option>
-<option value="Day">Day</option>
-<option value="Night">Night</option>
-</select>
-
-<button type="button" class="load-btn" onclick="loadJobcard()">Load JobCard</button>
+        <!-- Total -->
+        <div class="total-box">
+            <div>Total Output</div>
+            <div class="total-value total">0</div>
+        </div>
+    </form>
 </div>
-
-<!-- Hidden fields sent in POST -->
-<input type="hidden" name="line" id="id_line" value="{{ line }}">
-<input type="hidden" name="shift" id="id_shift" value="{{ shift }}">
-
-<!-- Job Details -->
-<div class="section job-details">
-<h2>Job Details</h2>
-{{ form.date.label_tag }} {{ form.date }}
-{{ form.wo_number.label_tag }} {{ form.wo_number }}
-{{ form.product_code.label_tag }} {{ form.product_code }}
-{{ form.product_name.label_tag }} {{ form.product_name }}
-{{ form.target_quantity.label_tag }} {{ form.target_quantity }}
-</div>
-
-<!-- Hourly Output -->
-<div class="section hourly-output">
-<h2>Hourly Output</h2>
-
-<div class="hour-grid">
-{{ form.hour1 }} {{ form.hour2 }} {{ form.hour3 }}
-{{ form.hour4 }} {{ form.hour5 }} {{ form.hour6 }}
-{{ form.hour7 }} {{ form.hour8 }} {{ form.hour9 }}
-{{ form.hour10 }} {{ form.hour11 }}
-</div>
-
-<div class="total-output">
-Total Output: <span id="totalOutput">0</span>
-</div>
-</div>
-
-<!-- Damages -->
-<div class="section damages">
-<h2>Damages / Rejects</h2>
-<div class="damage-grid">
-{{ form.jar.label_tag }} {{ form.jar }}
-{{ form.cap.label_tag }} {{ form.cap }}
-{{ form.front_label.label_tag }} {{ form.front_label }}
-{{ form.back_label.label_tag }} {{ form.back_label }}
-{{ form.carton.label_tag }} {{ form.carton }}
-{{ form.sleeve.label_tag }} {{ form.sleeve }}
-{{ form.sticker.label_tag }} {{ form.sticker }}
-{{ form.tube.label_tag }} {{ form.tube }}
-{{ form.packets.label_tag }} {{ form.packets }}
-{{ form.roll_on_ball.label_tag }} {{ form.roll_on_ball }}
-{{ form.jar_pump.label_tag }} {{ form.jar_pump }}
-</div>
-</div>
-
-<!-- Staff -->
-<div class="section staff">
-<h2>Operators & Supervisors</h2>
-{{ form.operator_names.label_tag }} {{ form.operator_names }}
-{{ form.supervisor_names.label_tag }} {{ form.supervisor_names }}
-{{ form.line_captain_signature.label_tag }} {{ form.line_captain_signature }}
-{{ form.supervisor_signature.label_tag }} {{ form.supervisor_signature }}
-</div>
-
-<button type="submit" class="submit-btn">Submit</button>
-</form>
+{% endfor %}
 
 <script>
-const totalOutputEl = document.getElementById("totalOutput")
-const hours = [...Array(11)].map((_,i)=>document.getElementById(`id_hour${i+1}`))
+document.querySelectorAll(".line-form").forEach(form => {
+    const inputs = form.querySelectorAll("input[type=number]");
+    const totalDiv = form.querySelector(".total-value");
 
-function updateTotal(){
-    let t=0
-    hours.forEach(h=>{ if(h.value) t+=parseInt(h.value)||0 })
-    totalOutputEl.textContent = t
-}
-hours.forEach(h=>h.addEventListener("input", updateTotal))
-updateTotal()
+    const recalcTotal = () => {
+        let sum = 0;
+        inputs.forEach(i => {
+            let val = parseFloat(i.value);
+            if(!isNaN(val)) sum += val;
+        });
+        totalDiv.textContent = sum;
+    };
 
-function loadJobcard(){
-    const line = document.getElementById("lineSelect").value;
-    const shift = document.getElementById("shiftSelect").value;
-    if(!line || !shift){ alert("Select Line and Shift first"); return; }
+    recalcTotal();
 
-    fetch(`/jobcard/get-jobcard/?line=${line}&shift=${shift}`)
-    .then(res => res.json())
-    .then(data => {
-        if(data.error){ alert(data.error); return; }
+    inputs.forEach(input => {
+        input.addEventListener("change", async () => {
+            if(!input.value || input.disabled) return;
 
-        document.getElementById("id_line").value = line
-        document.getElementById("id_shift").value = shift
+            const fd = new FormData(form);
 
-        document.getElementById("id_wo_number").value = data.wo_number
-        document.getElementById("id_product_code").value = data.product_code
-        document.getElementById("id_product_name").value = data.product_name
-        document.getElementById("id_target_quantity").value = data.target_quantity
+            // ✅ Preserve unified date + shift + line
+            fd.append("shift", form.querySelector("[name=shift]").value);
+            fd.append("date", form.querySelector("[name=date]").value);
+            fd.append("line", form.querySelector("[name=line]").value);
 
-        document.getElementById("id_operator_names").value = data.operator_names
-        document.getElementById("id_supervisor_names").value = data.supervisor_names
+            try{
+                const res = await fetch("",{
+                    method:"POST",
+                    headers:{
+                        "X-CSRFToken": form.querySelector("[name=csrfmiddlewaretoken]").value,
+                        "X-Requested-With":"XMLHttpRequest"
+                    },
+                    body:fd
+                });
 
-        data.hours.forEach((val,i)=>{
-            const el = document.getElementById(`id_hour${i+1}`)
-            if(el){ el.value = val }
-        })
+                const data = await res.json();
 
-        updateTotal()
-    })
-    .catch(err => console.error("Error loading JobCard:", err))
-}
+                if(data.error){
+                    alert(data.error);
+                    input.value="";
+                    recalcTotal();
+                    return;
+                }
+
+                if(data.success){
+                    input.disabled = true;
+                    input.classList.add("locked");
+                    recalcTotal();
+                }
+
+            }catch(err){
+                console.error(err);
+            }
+        });
+    });
+});
 </script>
-
-</body>
-</html>
