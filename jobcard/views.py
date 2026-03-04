@@ -419,4 +419,4 @@ def get_jobcard(request):
 
 # Custom CSRF Failure View
 def custom_csrf_failure(request, reason=""):
-    return render(request, "csrf_error.html", status=403)
+    return render(request, "csrf_failure.html", status=403)
