@@ -4,10 +4,9 @@ from django.utils import timezone
 from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
 from .forms import TempSubmissionForm, JobCardForm, JobCardPrepopulateForm
-from .models import TempSubmission, ShiftSubmission, JobCard, LINE_CHOICES
+from .models import TempSubmission, ShiftSubmission, JobCard, LINE_CHOICES, ActiveShift
 from datetime import timedelta, time
 import csv
-from .models import ActiveShift
 
 # -----------------------------
 # Helper function for shift date logic
@@ -20,13 +19,10 @@ def get_production_date(shift: str, current_time=None):
     """
     now = current_time or timezone.localtime()
     today = now.date()
-
     if shift.lower() == "night":
         cutoff = time(5, 30)
         if now.time() < cutoff:
             return today - timedelta(days=1)
-        else:
-            return today
     return today
 
 # -----------------------------
@@ -76,14 +72,9 @@ def temp_submission(request):
     now = timezone.localtime()
     user = request.user if request.user.is_authenticated else None
 
-    # ✅ ALWAYS follow supervisor-selected shift
     active = ActiveShift.objects.first()
-    if active:
-        shift = active.shift
-        target_date = get_production_date(shift, now)
-    else:
-        shift = "Day"
-        target_date = get_production_date(shift, now)
+    shift = active.shift if active else "Day"
+    target_date = get_production_date(shift, now)
 
     lines = [l[0] for l in LINE_CHOICES]
     forms_data = []
@@ -91,7 +82,6 @@ def temp_submission(request):
     # ---------------- AJAX SAVE ----------------
     if request.method == "POST" and request.headers.get("x-requested-with") == "XMLHttpRequest":
         line = request.POST.get("line")
-
         obj, _ = TempSubmission.objects.get_or_create(
             operator=user,
             date=target_date,
@@ -100,7 +90,6 @@ def temp_submission(request):
         )
 
         updated_fields = []
-
         for i in range(1, 12):
             field = f"hour{i}"
             new_val = request.POST.get(field)
@@ -108,7 +97,6 @@ def temp_submission(request):
 
             if new_val in [None, ""]:
                 continue
-
             try:
                 new_val = float(new_val)
             except:
@@ -134,7 +122,6 @@ def temp_submission(request):
             shift=shift,
             line=line
         )
-
         form = TempSubmissionForm(instance=obj)
         forms_data.append((line, form, obj))
 
@@ -150,45 +137,27 @@ def supervisor_dashboard(request):
     now = timezone.localtime()
     today = now.date()
 
-    # PRIORITY 1 → manual dropdown selection
     selected_shift = request.GET.get("shift")
+    active = ActiveShift.objects.first()
 
     if selected_shift in ["Day", "Night"]:
         shift = selected_shift
-        target_date = get_production_date(shift, now)
+    elif active:
+        shift = active.shift
     else:
-        # PRIORITY 2 → system active shift
-        active = ActiveShift.objects.first()
-        if active:
-            shift = active.shift
-            target_date = get_production_date(shift, now)
-        else:
-            shift = "Day"
-            target_date = get_production_date(shift, now)
+        shift = "Day"
 
-    submissions = TempSubmission.objects.filter(
-        date=target_date,
-        shift=shift
-    ).order_by("line", "operator")
+    target_date = get_production_date(shift, now)
+    submissions = TempSubmission.objects.filter(date=target_date, shift=shift).order_by("line", "operator")
 
     lines = [l[0] for l in LINE_CHOICES]
     global_locked_hours = []
 
     for h in range(1, 12):
-        filled_lines = (
-            submissions
-            .exclude(**{f"hour{h}__isnull": True})
-            .exclude(**{f"hour{h}": 0})
-            .values("line")
-            .distinct()
-            .count()
-        )
+        filled_lines = submissions.exclude(**{f"hour{h}__isnull": True}).exclude(**{f"hour{h}": 0}).values("line").distinct().count()
         if filled_lines >= len(lines):
             global_locked_hours.append(h)
 
-    # =========================
-    # AJAX REALTIME ENDPOINT
-    # =========================
     if request.GET.get("ajax") == "1":
         dashboard_data = {}
         for sub in submissions:
@@ -196,28 +165,22 @@ def supervisor_dashboard(request):
             if key not in dashboard_data:
                 dashboard_data[key] = {"hour_totals": [0]*11, "total": 0}
 
-            hours = [sub.hour1,sub.hour2,sub.hour3,sub.hour4,sub.hour5,sub.hour6,sub.hour7,sub.hour8,sub.hour9,sub.hour10,sub.hour11]
+            hours = [getattr(sub, f"hour{i}") or 0 for i in range(1,12)]
             for i in range(11):
-                dashboard_data[key]["hour_totals"][i] += hours[i] or 0
-
+                dashboard_data[key]["hour_totals"][i] += hours[i]
             dashboard_data[key]["total"] += sub.total_output()
 
         return JsonResponse({"global_locked_hours": global_locked_hours, "dashboard_data": dashboard_data})
 
-    # =========================
-    # NORMAL PAGE LOAD
-    # =========================
     dashboard_data = {}
     for sub in submissions:
         key = f"{sub.line}_{sub.shift}"
         if key not in dashboard_data:
             dashboard_data[key] = {"submissions": [], "hour_totals":[0]*11, "total":0}
-
         dashboard_data[key]["submissions"].append(sub)
-        hours = [sub.hour1,sub.hour2,sub.hour3,sub.hour4,sub.hour5,sub.hour6,sub.hour7,sub.hour8,sub.hour9,sub.hour10,sub.hour11]
+        hours = [getattr(sub, f"hour{i}") or 0 for i in range(1,12)]
         for i in range(11):
-            dashboard_data[key]["hour_totals"][i] += hours[i] or 0
-
+            dashboard_data[key]["hour_totals"][i] += hours[i]
         dashboard_data[key]["total"] += sub.total_output()
 
     return render(request, "supervisor_dashboard.html", {
@@ -252,7 +215,7 @@ def finalize_shift(request, line, shift):
 
     aggregated_data = [{
         "operator": s.operator.username if s.operator else "Anonymous",
-        "hours": [s.hour1,s.hour2,s.hour3,s.hour4,s.hour5,s.hour6,s.hour7,s.hour8,s.hour9,s.hour10,s.hour11],
+        "hours": [getattr(s, f"hour{i}") or 0 for i in range(1,12)],
         "total": s.total_output()
     } for s in submissions]
 
@@ -275,15 +238,15 @@ def finalize_shift(request, line, shift):
 def jobcard_operator_entry(request):
     now = timezone.localtime()
     line = request.POST.get("line") or request.GET.get("line")
-    shift = request.POST.get("shift") or request.GET.get("shift", "Day")
+    shift = request.POST.get("shift") or "Day"
 
-    if not line or not shift:
-        messages.warning(request, "Please select a Line and Shift first.")
+    if not line:
+        messages.warning(request, "Please select a Line first.")
         form = JobCardForm()
         return render(request, "jobcard_form.html", {"form": form, "shift": shift, "line": line})
 
     jobcard_date = get_production_date(shift, now)
-    jobcard, created = JobCard.objects.get_or_create(date=jobcard_date, line=line, shift=shift)
+    jobcard, _ = JobCard.objects.get_or_create(date=jobcard_date, line=line, shift=shift)
 
     temp_data = TempSubmission.objects.filter(date=jobcard_date, line=line, shift__iexact=shift).first()
     if temp_data:
@@ -316,7 +279,6 @@ def jobcard_success(request):
 # -----------------------------
 def jobcard_prepopulate(request):
     now = timezone.localtime()
-    today = now.date()
 
     if request.method == "POST":
         form = JobCardPrepopulateForm(request.POST)
