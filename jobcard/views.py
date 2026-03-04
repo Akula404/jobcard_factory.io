@@ -5,9 +5,29 @@ from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
 from .forms import TempSubmissionForm, JobCardForm, JobCardPrepopulateForm
 from .models import TempSubmission, ShiftSubmission, JobCard, LINE_CHOICES
-from datetime import timedelta
+from datetime import timedelta, time
 import csv
 from .models import ActiveShift
+
+# -----------------------------
+# Helper function for shift date logic
+# -----------------------------
+def get_production_date(shift: str, current_time=None):
+    """
+    Returns the correct production date based on shift and time.
+    Day shift → same day
+    Night shift → if before 5:30 AM, subtract 1 day, else same day
+    """
+    now = current_time or timezone.localtime()
+    today = now.date()
+
+    if shift.lower() == "night":
+        cutoff = time(5, 30)
+        if now.time() < cutoff:
+            return today - timedelta(days=1)
+        else:
+            return today
+    return today
 
 # -----------------------------
 # CSV EXPORT
@@ -53,17 +73,17 @@ def export_jobcards_csv(request):
 # TEMP SUBMISSION (LIVE OPERATOR ENTRY)
 # -----------------------------
 def temp_submission(request):
-    today = timezone.localdate()
+    now = timezone.localtime()
     user = request.user if request.user.is_authenticated else None
 
     # ✅ ALWAYS follow supervisor-selected shift
     active = ActiveShift.objects.first()
     if active:
         shift = active.shift
-        target_date = active.date
+        target_date = get_production_date(shift, now)
     else:
         shift = "Day"
-        target_date = today
+        target_date = get_production_date(shift, now)
 
     lines = [l[0] for l in LINE_CHOICES]
     forms_data = []
@@ -127,23 +147,24 @@ def temp_submission(request):
 # SUPERVISOR DASHBOARD
 # -----------------------------
 def supervisor_dashboard(request):
-    today = timezone.localdate()
+    now = timezone.localtime()
+    today = now.date()
 
     # PRIORITY 1 → manual dropdown selection
     selected_shift = request.GET.get("shift")
 
     if selected_shift in ["Day", "Night"]:
         shift = selected_shift
-        target_date = today if shift == "Day" else today - timedelta(days=1)
+        target_date = get_production_date(shift, now)
     else:
         # PRIORITY 2 → system active shift
         active = ActiveShift.objects.first()
         if active:
             shift = active.shift
-            target_date = active.date
+            target_date = get_production_date(shift, now)
         else:
             shift = "Day"
-            target_date = today
+            target_date = get_production_date(shift, now)
 
     submissions = TempSubmission.objects.filter(
         date=target_date,
@@ -169,55 +190,31 @@ def supervisor_dashboard(request):
     # AJAX REALTIME ENDPOINT
     # =========================
     if request.GET.get("ajax") == "1":
-
         dashboard_data = {}
-
         for sub in submissions:
             key = f"{sub.line}_{sub.shift}"
-
             if key not in dashboard_data:
-                dashboard_data[key] = {
-                    "hour_totals": [0] * 11,
-                    "total": 0
-                }
+                dashboard_data[key] = {"hour_totals": [0]*11, "total": 0}
 
-            hours = [
-                sub.hour1, sub.hour2, sub.hour3, sub.hour4, sub.hour5,
-                sub.hour6, sub.hour7, sub.hour8, sub.hour9, sub.hour10, sub.hour11
-            ]
-
+            hours = [sub.hour1,sub.hour2,sub.hour3,sub.hour4,sub.hour5,sub.hour6,sub.hour7,sub.hour8,sub.hour9,sub.hour10,sub.hour11]
             for i in range(11):
                 dashboard_data[key]["hour_totals"][i] += hours[i] or 0
 
             dashboard_data[key]["total"] += sub.total_output()
 
-        return JsonResponse({
-            "global_locked_hours": global_locked_hours,
-            "dashboard_data": dashboard_data
-        })
+        return JsonResponse({"global_locked_hours": global_locked_hours, "dashboard_data": dashboard_data})
 
     # =========================
     # NORMAL PAGE LOAD
     # =========================
     dashboard_data = {}
-
     for sub in submissions:
         key = f"{sub.line}_{sub.shift}"
-
         if key not in dashboard_data:
-            dashboard_data[key] = {
-                "submissions": [],
-                "hour_totals": [0] * 11,
-                "total": 0
-            }
+            dashboard_data[key] = {"submissions": [], "hour_totals":[0]*11, "total":0}
 
         dashboard_data[key]["submissions"].append(sub)
-
-        hours = [
-            sub.hour1, sub.hour2, sub.hour3, sub.hour4, sub.hour5,
-            sub.hour6, sub.hour7, sub.hour8, sub.hour9, sub.hour10, sub.hour11
-        ]
-
+        hours = [sub.hour1,sub.hour2,sub.hour3,sub.hour4,sub.hour5,sub.hour6,sub.hour7,sub.hour8,sub.hour9,sub.hour10,sub.hour11]
         for i in range(11):
             dashboard_data[key]["hour_totals"][i] += hours[i] or 0
 
@@ -226,7 +223,7 @@ def supervisor_dashboard(request):
     return render(request, "supervisor_dashboard.html", {
         "dashboard_data": dashboard_data,
         "today": today,
-        "hour_range": range(1, 12),
+        "hour_range": range(1,12),
         "shift": shift
     })
 
@@ -236,18 +233,10 @@ def supervisor_dashboard(request):
 def reset_shift(request):
     if request.method == "POST":
         shift = request.POST.get("shift")
-        today = timezone.localdate()
+        target_date = get_production_date(shift)
 
-        target_date = today if shift == "Day" else today - timedelta(days=1)
-
-        # save active shift
         ActiveShift.objects.all().delete()
-        ActiveShift.objects.create(
-            shift=shift,
-            date=target_date
-        )
-
-        # clear old temp data for that shift
+        ActiveShift.objects.create(shift=shift, date=target_date)
         TempSubmission.objects.filter(shift=shift, date=target_date).delete()
 
         messages.success(request, f"{shift} shift started successfully.")
@@ -258,19 +247,17 @@ def reset_shift(request):
 # FINALIZE SHIFT
 # -----------------------------
 def finalize_shift(request, line, shift):
-    today = timezone.localdate()
-    submissions = TempSubmission.objects.filter(date=today if shift=="Day" else today - timedelta(days=1), line=line, shift=shift)
+    target_date = get_production_date(shift)
+    submissions = TempSubmission.objects.filter(date=target_date, line=line, shift=shift)
 
     aggregated_data = [{
         "operator": s.operator.username if s.operator else "Anonymous",
-        "hours": [
-            s.hour1,s.hour2,s.hour3,s.hour4,s.hour5,s.hour6,s.hour7,s.hour8,s.hour9,s.hour10,s.hour11
-        ],
+        "hours": [s.hour1,s.hour2,s.hour3,s.hour4,s.hour5,s.hour6,s.hour7,s.hour8,s.hour9,s.hour10,s.hour11],
         "total": s.total_output()
     } for s in submissions]
 
     shift_submission, created = ShiftSubmission.objects.get_or_create(
-        date=today if shift=="Day" else today - timedelta(days=1),
+        date=target_date,
         line=line,
         shift=shift,
         defaults={"aggregated_data": aggregated_data}
@@ -286,7 +273,7 @@ def finalize_shift(request, line, shift):
 # JOBCARD OPERATOR ENTRY
 # -----------------------------
 def jobcard_operator_entry(request):
-    today = timezone.localdate()
+    now = timezone.localtime()
     line = request.POST.get("line") or request.GET.get("line")
     shift = request.POST.get("shift") or request.GET.get("shift", "Day")
 
@@ -295,13 +282,12 @@ def jobcard_operator_entry(request):
         form = JobCardForm()
         return render(request, "jobcard_form.html", {"form": form, "shift": shift, "line": line})
 
-    jobcard_date = today if shift.lower() == "day" else today - timedelta(days=1)
+    jobcard_date = get_production_date(shift, now)
     jobcard, created = JobCard.objects.get_or_create(date=jobcard_date, line=line, shift=shift)
 
-    # ✅ Load TempSubmission hours
     temp_data = TempSubmission.objects.filter(date=jobcard_date, line=line, shift__iexact=shift).first()
     if temp_data:
-        for i in range(1, 12):
+        for i in range(1,12):
             setattr(jobcard, f"hour{i}", getattr(temp_data, f"hour{i}", 0))
 
     if request.method == "POST":
@@ -329,14 +315,18 @@ def jobcard_success(request):
 # JOBCARD PREPOPULATE
 # -----------------------------
 def jobcard_prepopulate(request):
-    today = timezone.localdate()
+    now = timezone.localtime()
+    today = now.date()
+
     if request.method == "POST":
         form = JobCardPrepopulateForm(request.POST)
         if form.is_valid():
             line = form.cleaned_data['line']
             shift = form.cleaned_data['shift']
+            jobcard_date = get_production_date(shift, now)
+
             jobcard, created = JobCard.objects.get_or_create(
-                date=today if shift=="Day" else today - timedelta(days=1),
+                date=jobcard_date,
                 line=line,
                 shift=shift,
                 defaults={
@@ -368,34 +358,20 @@ def jobcard_prepopulate(request):
 # GET JOBCARD AJAX (OPERATOR PANEL)
 # -----------------------------
 def get_jobcard(request):
-    line = request.GET.get("line")
     now = timezone.localtime()
-
-    # ✅ ALWAYS trust ActiveShift (single source of truth)
+    line = request.GET.get("line")
     active = ActiveShift.objects.first()
 
     if not active:
         return JsonResponse({"error": "No active shift set. Please wait for supervisor to start a shift."})
 
     shift = active.shift.strip()
-    target_date = active.date
-
-    print("DEBUG →", line, shift, target_date, "| TIME:", now)
+    target_date = get_production_date(shift, now)
 
     try:
-        job = JobCard.objects.get(
-            line=line,
-            shift=shift,
-            date=target_date
-        )
+        job = JobCard.objects.get(line=line, shift=shift, date=target_date)
+        temp = TempSubmission.objects.filter(date=target_date, line=line, shift__iexact=shift).first()
 
-        temp = TempSubmission.objects.filter(
-            date=target_date,
-            line=line,
-            shift__iexact=shift
-        ).first()
-
-        # hourly values
         hours = []
         for i in range(1, 12):
             if temp and getattr(temp, f"hour{i}", None) is not None:
@@ -413,10 +389,11 @@ def get_jobcard(request):
             "hours": hours,
             "submitted": bool(job.is_submitted)
         })
-
     except JobCard.DoesNotExist:
         return JsonResponse({"error": "No JobCard found for this line & shift"})
 
+# -----------------------------
 # Custom CSRF Failure View
+# -----------------------------
 def custom_csrf_failure(request, reason=""):
     return render(request, "csrf_failure.html", status=403)
