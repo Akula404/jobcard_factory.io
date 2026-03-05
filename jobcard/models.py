@@ -138,7 +138,7 @@ class TempSubmission(models.Model):
 
         constraints = [
             models.UniqueConstraint(
-                fields=["operator", "date", "line", "shift"],
+                fields=["operator", "date", "line", "shift", "wo_number"],
                 name="unique_operator_submission"
             )
         ]
