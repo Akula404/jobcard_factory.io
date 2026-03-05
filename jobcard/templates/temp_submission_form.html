@@ -1,3 +1,4 @@
+{% load static %}
 <h2 class="title">Operator Entry Panel</h2>
 
 <style>
@@ -134,6 +135,8 @@ input.locked {
     <form class="line-form" data-line="{{ line }}">
         {% csrf_token %}
         <input type="hidden" name="line" value="{{ line }}">
+        <input type="hidden" name="shift" value="{{ shift }}">
+        <input type="hidden" name="submission_date" value="{{ unified_date }}">
 
         <!-- Hour Labels -->
         <div class="hour-labels">
@@ -188,9 +191,6 @@ document.querySelectorAll(".line-form").forEach(form => {
             if(!input.value || input.disabled) return;
 
             const fd = new FormData(form);
-
-            // ✅ IMPORTANT: ALWAYS append shift explicitly
-            fd.append("shift", "{{ shift }}");
 
             try{
                 const res = await fetch("",{

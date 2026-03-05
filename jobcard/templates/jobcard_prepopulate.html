@@ -1,4 +1,4 @@
-<!-- templates/jobcard_prepopulate.html -->
+{% load custom_filters %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,168 +6,80 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Prepopulate JobCards</title>
 <style>
-    /* ====== Body ====== */
-    body {
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        background: #f4f7f9;
-        margin: 0;
-        padding: 0;
-        display: flex;
-        justify-content: center;
-        align-items: flex-start;
-        min-height: 100vh;
-    }
-
-    /* ====== Container Card ====== */
-    .card {
-        background: #fff;
-        margin-top: 50px;
-        padding: 40px 50px;
-        border-radius: 15px;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-        max-width: 600px;
-        width: 100%;
-        animation: fadeIn 0.5s ease-in-out;
-    }
-
-    /* ====== Headings ====== */
-    h1, h2 {
-        text-align: center;
-        color: #2c3e50;
-        margin-bottom: 20px;
-    }
-
-    h1 { font-size: 28px; }
-    h2 { font-size: 24px; margin-top: 40px; }
-
-    /* ====== Form Elements ====== */
-    form {
-        display: flex;
-        flex-direction: column;
-        gap: 20px;
-    }
-
-    label {
-        font-weight: 600;
-        margin-bottom: 5px;
-        color: #34495e;
-    }
-
-    input, select, textarea {
-        width: 100%;
-        padding: 10px 12px;
-        border-radius: 8px;
-        border: 1px solid #ccc;
-        box-sizing: border-box;
-        transition: border-color 0.3s, box-shadow 0.3s;
-    }
-
-    input:focus, select:focus, textarea:focus {
-        border-color: #2980b9;
-        box-shadow: 0 0 5px rgba(41, 128, 185, 0.3);
-        outline: none;
-    }
-
-    /* ====== Buttons ====== */
-    .submit-btn, .load-btn {
-        background: #2980b9;
-        color: #fff;
-        padding: 12px;
-        font-size: 16px;
-        font-weight: bold;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        transition: 0.3s;
-    }
-
-    .submit-btn:hover, .load-btn:hover {
-        background: #3498db;
-    }
-
-    /* ====== Messages ====== */
-    .messages {
-        margin-bottom: 20px;
-    }
-
-    .messages .error {
-        color: #c0392b;
-        background: #fdecea;
-        padding: 10px 15px;
-        border-radius: 6px;
-        margin-bottom: 10px;
-        border-left: 4px solid #e74c3c;
-    }
-
-    .messages .success {
-        color: #27ae60;
-        background: #eafaf1;
-        padding: 10px 15px;
-        border-radius: 6px;
-        margin-bottom: 10px;
-        border-left: 4px solid #2ecc71;
-    }
-
-    /* ====== Fade In Animation ====== */
-    @keyframes fadeIn {
-        from {opacity: 0; transform: translateY(-20px);}
-        to {opacity: 1; transform: translateY(0);}
-    }
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f4f7f9;
+    margin: 0; padding: 0; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh;
+}
+.card {
+    background: #fff;
+    margin-top: 50px;
+    padding: 40px 50px;
+    border-radius: 15px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    max-width: 600px;
+    width: 100%;
+    animation: fadeIn 0.5s ease-in-out;
+}
+h1, h2 { text-align:center; color:#2c3e50; margin-bottom: 20px; }
+h1 { font-size:28px; } h2 { font-size:24px; margin-top:40px; }
+form { display:flex; flex-direction:column; gap:20px; }
+label { font-weight:600; margin-bottom:5px; color:#34495e; }
+input, select, textarea { width:100%; padding:10px 12px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box; }
+input:focus, select:focus, textarea:focus { border-color:#2980b9; box-shadow:0 0 5px rgba(41,128,185,0.3); outline:none; }
+.submit-btn, .load-btn { background:#2980b9; color:#fff; padding:12px; font-size:16px; font-weight:bold; border:none; border-radius:8px; cursor:pointer; transition:0.3s; }
+.submit-btn:hover, .load-btn:hover { background:#3498db; }
+.messages .error { color:#c0392b; background:#fdecea; padding:10px 15px; border-radius:6px; margin-bottom:10px; border-left:4px solid #e74c3c; }
+.messages .success { color:#27ae60; background:#eafaf1; padding:10px 15px; border-radius:6px; margin-bottom:10px; border-left:4px solid #2ecc71; }
+@keyframes fadeIn { from {opacity:0; transform:translateY(-20px);} to {opacity:1; transform:translateY(0);} }
 </style>
 </head>
 <body>
 
 <div class="card">
-    <h1>Prepopulate JobCards for Today</h1>
+<h1>Prepopulate JobCards for Today</h1>
 
-    <!-- Display Django messages -->
-    {% if messages %}
-        <div class="messages">
-            {% for message in messages %}
-                <div class="{{ message.tags }}">{{ message }}</div>
-            {% endfor %}
-        </div>
-    {% endif %}
+{% if messages %}
+<div class="messages">
+{% for message in messages %}
+<div class="{{ message.tags }}">{{ message }}</div>
+{% endfor %}
+</div>
+{% endif %}
 
-    <!-- Prepopulate Form -->
-    <form method="post" action="{% url 'jobcard:jobcard_prepopulate' %}">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit" class="submit-btn">Prepopulate JobCard</button>
-    </form>
+<form method="post" action="{% url 'jobcard:jobcard_prepopulate' %}">
+{% csrf_token %}
+{{ form.as_p }}
+<button type="submit" class="submit-btn">Prepopulate JobCard</button>
+</form>
 
-    <!-- Export CSV Form (Supervisor Only) -->
-    <h2>Export JobCards</h2>
-    <form method="get" action="{% url 'jobcard:export_jobcards_csv' %}">
-        <label>Start Date:</label>
-        <input type="date" name="start_date" value="{{ today }}">
-
-        <label>End Date:</label>
-        <input type="date" name="end_date" value="{{ today }}">
-
-        <label>Line (optional):</label>
-        <select name="line">
-            <option value="">All Lines</option>
-            <option value="FL001">FL 001</option>
-            <option value="FL006">FL 006</option>
-            <option value="FL007">FL 007</option>
-            <option value="FL008">FL 008</option>
-            <option value="FL009">FL 009</option>
-            <option value="FL010">FL 010</option>
-            <option value="FL013">FL 013</option>
-            <option value="FL015">FL 015</option>
-            <option value="COPACK">CO-PACKING</option>
-        </select>
-
-        <label>Shift (optional):</label>
-        <select name="shift">
-            <option value="">All Shifts</option>
-            <option value="Day">Day</option>
-            <option value="Night">Night</option>
-        </select>
-
-        <button type="submit" class="load-btn">Export CSV</button>
-    </form>
+<h2>Export JobCards</h2>
+<form method="get" action="{% url 'jobcard:export_jobcards_csv' %}">
+<label>Start Date:</label>
+<input type="date" name="start_date" value="{{ today }}">
+<label>End Date:</label>
+<input type="date" name="end_date" value="{{ today }}">
+<label>Line (optional):</label>
+<select name="line">
+<option value="">All Lines</option>
+<option value="FL001">FL 001</option>
+<option value="FL006">FL 006</option>
+<option value="FL007">FL 007</option>
+<option value="FL008">FL 008</option>
+<option value="FL009">FL 009</option>
+<option value="FL010">FL 010</option>
+<option value="FL013">FL 013</option>
+<option value="FL015">FL 015</option>
+<option value="COPACK">CO-PACKING</option>
+</select>
+<label>Shift (optional):</label>
+<select name="shift">
+<option value="">All Shifts</option>
+<option value="Day">Day</option>
+<option value="Night">Night</option>
+</select>
+<button type="submit" class="load-btn">Export CSV</button>
+</form>
 </div>
 
 </body>
